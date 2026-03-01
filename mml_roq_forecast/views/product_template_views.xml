@@ -1,4 +1,29 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Full product ROQ tab added in Sprint 3 -->
+    <record id="view_product_template_roq_ext" model="ir.ui.view">
+        <field name="name">product.template.roq.ext</field>
+        <field name="model">product.template</field>
+        <field name="inherit_id" ref="product.product_template_only_form_view"/>
+        <field name="arch" type="xml">
+            <notebook position="inside">
+                <page string="ROQ / Procurement" name="roq_tab">
+                    <group>
+                        <group string="ABC Tier">
+                            <field name="abc_tier" readonly="1"/>
+                            <field name="abc_trailing_revenue" readonly="1"/>
+                            <field name="abc_cumulative_pct" readonly="1"/>
+                            <field name="abc_tier_override"/>
+                            <field name="abc_tier_pending" readonly="1"/>
+                            <field name="abc_weeks_in_pending" readonly="1"/>
+                        </group>
+                        <group string="Container Planning">
+                            <field name="cbm_per_unit"/>
+                            <field name="pack_size"/>
+                            <field name="is_roq_managed"/>
+                        </group>
+                    </group>
+                </page>
+            </notebook>
+        </field>
+    </record>
 </odoo>
