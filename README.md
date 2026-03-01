@@ -111,6 +111,44 @@ SKUs missing `cbm_per_unit` or `pack_size` appear in the **Data Quality** flag o
 
 ---
 
+## Order Dashboard & Draft PO Raise
+
+**MML Operations → ROQ Forecast → Order Dashboard**
+
+Opens the latest completed ROQ run as an actionable two-tab view:
+
+### Tab 1 — Urgency List
+
+All active (non-dormant) SKUs sorted by weeks of cover at delivery, lowest first. OOS-risk rows (projected inventory at delivery < 0) highlighted in red; under-8-weeks rows in orange.
+
+| Column | Notes |
+|---|---|
+| ABC Tier | Badge — A/B/C colour-coded |
+| Product | |
+| Supplier | |
+| Warehouse | |
+| Cover (wks) | Primary sort — negative = OOS risk |
+| Proj. Inv at Delivery | Negative = OOS |
+| Order Qty | ROQ (Containerized) suggested quantity |
+| Container | LCL / 20GP / 40GP / 40HQ |
+| Flags | OOS / Safety Stock / MOQ notes |
+
+### Tab 2 — Order by Supplier
+
+One row per supplier from this run's shipment groups. Shows SKU count, CBM contribution, container type, OOS risk flag, and linked PO (if already raised).
+
+**Raise Draft PO** button on each supplier row opens a wizard pre-populated with all order lines for that supplier. The wizard:
+
+- Defaults to **ROQ (Containerized)** quantities — includes A-tier container padding
+- Toggle **"Include container padding"** OFF to switch all lines to **ROQ (Pack Rounded)** demand-only quantities
+- Individual line quantities remain editable after toggling
+- On confirm, creates one `draft` purchase order per destination warehouse, resolves `price_unit` from vendor pricelists (falls back to 0.00 for buyer to fill in)
+- Links the raised PO back to the shipment group supplier line
+
+> **Note:** POs are always raised in `draft` state. They are never auto-confirmed.
+
+---
+
 ## Running Tests
 
 ```bash
@@ -122,6 +160,7 @@ odoo-bin --test-enable -d <db> --test-tags mml_freight_forwarding
 odoo-bin --test-enable -d <db> --test-tags /mml_roq_forecast:TestAbcClassifier
 odoo-bin --test-enable -d <db> --test-tags /mml_roq_forecast:TestMoqEnforcer
 odoo-bin --test-enable -d <db> --test-tags /mml_roq_forecast:TestContainerFitter
+odoo-bin --test-enable -d <db> --test-tags /mml_roq_forecast:TestRaisePoWizard
 
 # With log output
 odoo-bin --test-enable -d <db> --test-tags mml_roq_forecast --log-level=test
@@ -156,6 +195,8 @@ odoo-bin --test-enable -d <db> --test-tags mml_roq_forecast --log-level=test
 | `docs/plans/2026-03-01-sprint-2-roq-engine.md` | ROQ engine + MOQ enforcement sprint |
 | `docs/plans/2026-03-01-sprint-3-consolidation.md` | Consolidation engine sprint |
 | `docs/plans/2026-03-01-sprint-4-forward-plan-freight.md` | Forward plan + DSV freight bridge sprint |
+| `docs/plans/2026-03-02-order-dashboard-po-raise-design.md` | Order Dashboard + Draft PO Raise design |
+| `docs/plans/2026-03-02-order-dashboard-po-raise.md` | Order Dashboard + Draft PO Raise implementation plan |
 
 ---
 
