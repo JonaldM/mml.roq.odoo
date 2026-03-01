@@ -8,8 +8,9 @@ Step order (per spec §2.2):
 4. ROQ Calculation per SKU per warehouse
 5. Pack Size Rounding
 6. Aggregate by Supplier
-7. Container Fitting
-8. Write results to roq.forecast.line
+7. MOQ Enforcement (raise per-SKU supplier total to product.supplierinfo.min_qty if below)
+8. Container Fitting
+9. Write results to roq.forecast.line
 
 Called by roq.forecast.run.action_run()
 """
@@ -116,11 +117,12 @@ class RoqPipeline:
                     line_vals.append(self._dormant_line(forecast_run, product, wh, pt))
                 continue
 
-            # Get primary supplier
+            # Get primary supplier and MOQ
             supplier_info = self.env['product.supplierinfo'].search([
                 ('product_tmpl_id', '=', pt.id),
             ], order='sequence asc, id asc', limit=1)
             supplier = supplier_info.partner_id if supplier_info else self.env['res.partner']
+            supplier_moq = supplier_info.min_qty if supplier_info else 0.0
 
             lt_days = self.settings.get_lead_time_days(supplier)
             review_days = self.settings.get_review_interval_days(supplier)
@@ -190,6 +192,10 @@ class RoqPipeline:
                     'weeks_of_cover_at_delivery': weeks_cover,
                     'container_type': 'unassigned' if not pt.cbm_per_unit else False,
                     'notes': notes,
+                    # MOQ — snapshot at run time; enforcement applied in step 7
+                    'supplier_moq': supplier_moq,
+                    'moq_uplift_qty': 0.0,
+                    'moq_flag': False,
                     # Internal carry fields for container fitting — removed before write
                     '_tier_str': tier,
                     '_weeks_cover': weeks_cover,
@@ -199,17 +205,15 @@ class RoqPipeline:
 
     def _apply_container_fitting(self, line_vals):
         """
-        Step 6-7: Group lines by supplier, run container fitting,
+        Steps 6-8: Group lines by supplier, enforce MOQ (step 7), run container fitting (step 8),
         update roq_containerized, container_type, fill_pct, padding_units.
         """
-        lcl_threshold = int(
-            self.env['ir.config_parameter'].sudo()
-            .get_param('roq.container_lcl_threshold_pct', 50)
-        )
-        max_padding = int(
-            self.env['ir.config_parameter'].sudo()
-            .get_param('roq.max_padding_weeks_cover', 26)
-        )
+        from .moq_enforcer import MoqEnforcer
+
+        get = self.env['ir.config_parameter'].sudo().get_param
+        lcl_threshold = int(get('roq.container_lcl_threshold_pct', 50))
+        max_padding = int(get('roq.max_padding_weeks_cover', 26))
+        enforce_moq = get('roq.enable_moq_enforcement', 'True') == 'True'
         fitter = ContainerFitter(lcl_threshold, max_padding)
 
         # Group by supplier_id
@@ -224,6 +228,24 @@ class RoqPipeline:
             if not active:
                 continue
 
+            # Step 7: MOQ Enforcement — per SKU within this supplier group
+            # Group warehouse lines by product, apply MoqEnforcer, then update cbm_total
+            by_product = defaultdict(list)
+            for _, v in active:
+                by_product[v['product_id']].append(v)
+
+            for pid_lines in by_product.values():
+                MoqEnforcer.enforce(
+                    pid_lines,
+                    enforce=enforce_moq,
+                    max_padding_weeks_cover=max_padding,
+                )
+                # Recompute cbm_total from MOQ-adjusted roq_pack_rounded so container
+                # fitting and downstream consolidation use the correct volume
+                for v in pid_lines:
+                    v['cbm_total'] = v['roq_pack_rounded'] * v.get('cbm_per_unit', 0.0)
+
+            # Step 8: Container Fitting — uses MOQ-adjusted quantities
             fit_input = [{
                 'product_id': v['product_id'],
                 'cbm': v['cbm_total'],

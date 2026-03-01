@@ -59,6 +59,7 @@ class RoqForecastRun(models.Model):
             'default_lead_time_days': int(get('roq.default_lead_time_days', 100)),
             'default_review_interval_days': int(get('roq.default_review_interval_days', 30)),
             'default_service_level': float(get('roq.default_service_level', 0.97)),
+            'enable_moq_enforcement': get('roq.enable_moq_enforcement', 'True') == 'True',
         })
         pipeline = RoqPipeline(self.env)
         pipeline.run(self)
