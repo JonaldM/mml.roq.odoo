@@ -1,3 +1,4 @@
+from odoo.exceptions import UserError
 from odoo.tests.common import TransactionCase
 
 
@@ -75,7 +76,6 @@ class TestShipmentGroup(TransactionCase):
 
     def test_raise_po_wizard_raises_if_po_already_linked(self):
         """action_raise_po_wizard raises UserError when purchase_order_id already set."""
-        from odoo.exceptions import UserError
         run = self.env['roq.forecast.run'].create({})
         group = self.env['roq.shipment.group'].create({
             'run_id': run.id, 'origin_port': 'CNSHA', 'container_type': '40HQ',
@@ -92,11 +92,27 @@ class TestShipmentGroup(TransactionCase):
 
     def test_raise_po_wizard_raises_if_no_run(self):
         """action_raise_po_wizard raises UserError when group has no run_id."""
-        from odoo.exceptions import UserError
         group = self.env['roq.shipment.group'].create({
             'origin_port': 'CNSHA', 'container_type': '40HQ',
         })
         supplier = self.env['res.partner'].create({'name': 'T3 Supplier', 'supplier_rank': 1})
+        line = self.env['roq.shipment.group.line'].create({
+            'group_id': group.id,
+            'supplier_id': supplier.id,
+        })
+        with self.assertRaises(UserError):
+            line.action_raise_po_wizard()
+
+    def test_raise_po_wizard_raises_if_group_not_draft(self):
+        """action_raise_po_wizard raises UserError when group state is not draft."""
+        run = self.env['roq.forecast.run'].create({})
+        group = self.env['roq.shipment.group'].create({
+            'run_id': run.id,
+            'origin_port': 'CNSHA',
+            'container_type': '40HQ',
+            'state': 'confirmed',
+        })
+        supplier = self.env['res.partner'].create({'name': 'T4 Supplier', 'supplier_rank': 1})
         line = self.env['roq.shipment.group.line'].create({
             'group_id': group.id,
             'supplier_id': supplier.id,

@@ -160,6 +160,11 @@ class RoqShipmentGroupLine(models.Model):
     def action_raise_po_wizard(self):
         """Open the Raise Draft PO wizard pre-populated for this supplier."""
         self.ensure_one()
+        if self.group_id.state != 'draft':
+            raise exceptions.UserError(
+                'Purchase orders can only be raised from draft shipment groups. '
+                f'This group is currently {dict(SHIPMENT_STATE).get(self.group_id.state, self.group_id.state)}.'
+            )
         run = self.group_id.run_id
         if not run:
             raise exceptions.UserError('This shipment group has no linked ROQ run.')
@@ -173,7 +178,7 @@ class RoqShipmentGroupLine(models.Model):
             ('supplier_id', '=', self.supplier_id.id),
             ('roq_containerized', '>', 0),
             ('abc_tier', '!=', 'D'),
-        ], order='product_id')
+        ], order='product_id.name')
         if not forecast_lines:
             raise exceptions.UserError(
                 f'No active order lines found for {self.supplier_id.name} in run {run.name}.'
