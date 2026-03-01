@@ -45,6 +45,13 @@ class RoqForecastRun(models.Model):
     )
 
     line_ids = fields.One2many('roq.forecast.line', 'run_id', string='Result Lines')
+    shipment_group_ids = fields.One2many(
+        'roq.shipment.group', 'run_id', string='Shipment Groups',
+    )
+    supplier_order_line_ids = fields.One2many(
+        'roq.shipment.group.line', 'run_id', string='Supplier Order Lines',
+        help='All supplier lines from shipment groups created by this run.',
+    )
     notes = fields.Text(string='Run Log / Errors')
 
     @api.model
