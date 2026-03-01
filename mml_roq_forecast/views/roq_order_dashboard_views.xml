@@ -1,0 +1,129 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <!-- Dashboard form view for roq.forecast.run (separate from the standard run form) -->
+    <record id="view_roq_order_dashboard_form" model="ir.ui.view">
+        <field name="name">roq.forecast.run.order.dashboard</field>
+        <field name="model">roq.forecast.run</field>
+        <field name="priority">20</field>
+        <field name="arch" type="xml">
+            <form string="Order Dashboard" create="false" delete="false">
+                <header>
+                    <button name="action_run" string="Re-run ROQ"
+                            type="object" class="btn-secondary"
+                            invisible="status in ('running', 'complete')"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1>Order Dashboard — <field name="name" readonly="1"/></h1>
+                    </div>
+                    <group>
+                        <group>
+                            <field name="run_date" readonly="1"/>
+                            <field name="total_skus_processed" readonly="1"/>
+                            <field name="total_skus_reorder" readonly="1"/>
+                        </group>
+                        <group>
+                            <field name="total_skus_oos_risk" readonly="1"
+                                   decoration-danger="total_skus_oos_risk &gt; 0"/>
+                            <field name="status" readonly="1"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <!-- TAB 1: All active SKUs sorted by urgency (weeks-of-cover asc) -->
+                        <page string="Urgency List" name="urgency_list">
+                            <p class="text-muted">
+                                Active SKUs sorted by weeks of cover at delivery (lowest = most urgent).
+                                Dormant (Tier D) and zero-order lines excluded.
+                                <strong style="color: var(--danger);">Red = OOS risk.</strong>
+                                <strong style="color: var(--warning);">Orange = under 8 weeks cover.</strong>
+                            </p>
+                            <field name="line_ids"
+                                   domain="[('abc_tier', '!=', 'D'), ('roq_containerized', '&gt;', 0)]"
+                                   readonly="1">
+                                <tree default_order="weeks_of_cover_at_delivery asc"
+                                      decoration-danger="projected_inventory_at_delivery &lt; 0"
+                                      decoration-warning="weeks_of_cover_at_delivery &lt;= 8 and projected_inventory_at_delivery &gt;= 0">
+                                    <field name="abc_tier" widget="badge"
+                                           decoration-danger="abc_tier == 'A'"
+                                           decoration-warning="abc_tier == 'B'"
+                                           decoration-info="abc_tier == 'C'"/>
+                                    <field name="product_id"/>
+                                    <field name="supplier_id"/>
+                                    <field name="warehouse_id"/>
+                                    <field name="weeks_of_cover_at_delivery" string="Cover (wks)"/>
+                                    <field name="projected_inventory_at_delivery" string="Proj. Inv at Delivery"/>
+                                    <field name="soh" optional="hide"/>
+                                    <field name="roq_containerized" string="Order Qty"/>
+                                    <field name="container_type" optional="show"/>
+                                    <field name="moq_flag" widget="boolean" optional="show" string="MOQ"/>
+                                    <field name="notes"/>
+                                </tree>
+                            </field>
+                        </page>
+
+                        <!-- TAB 2: Consolidated by supplier — one row per supplier with Raise PO button -->
+                        <page string="Order by Supplier" name="order_by_supplier">
+                            <p class="text-muted">
+                                One row per supplier from this run's shipment groups.
+                                Click <strong>Raise Draft PO</strong> to create purchase orders split by destination warehouse.
+                                The PO column shows the linked draft PO once raised.
+                            </p>
+                            <field name="supplier_order_line_ids">
+                                <tree decoration-danger="oos_risk_flag == True">
+                                    <field name="supplier_id" readonly="1"/>
+                                    <field name="product_count" string="SKUs" readonly="1"/>
+                                    <field name="cbm" string="CBM" readonly="1"/>
+                                    <field name="container_type" string="Container" readonly="1"/>
+                                    <field name="oos_risk_flag" widget="boolean_toggle"
+                                           decoration-danger="oos_risk_flag == True"
+                                           readonly="1"/>
+                                    <field name="purchase_order_id" string="PO" readonly="1"/>
+                                    <button name="action_raise_po_wizard"
+                                            string="Raise Draft PO"
+                                            type="object"
+                                            icon="fa-shopping-cart"
+                                            class="btn-primary btn-sm"
+                                            invisible="purchase_order_id != False"/>
+                                </tree>
+                            </field>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
+    <!-- Server action: find the latest complete run and open it in the dashboard view -->
+    <record id="action_roq_order_dashboard" model="ir.actions.server">
+        <field name="name">ROQ Order Dashboard</field>
+        <field name="model_id" ref="model_roq_forecast_run"/>
+        <field name="state">code</field>
+        <field name="code">
+run = env['roq.forecast.run'].search(
+    [('status', '=', 'complete')],
+    order='run_date desc',
+    limit=1,
+)
+if run:
+    action = {
+        'type': 'ir.actions.act_window',
+        'res_model': 'roq.forecast.run',
+        'res_id': run.id,
+        'view_mode': 'form',
+        'view_id': env.ref('mml_roq_forecast.view_roq_order_dashboard_form').id,
+        'target': 'main',
+    }
+else:
+    action = {
+        'type': 'ir.actions.client',
+        'tag': 'display_notification',
+        'params': {
+            'title': 'No Completed ROQ Runs',
+            'message': 'Run an ROQ forecast first (MML Operations → ROQ Forecast → ROQ Runs).',
+            'type': 'warning',
+            'sticky': False,
+        },
+    }
+        </field>
+    </record>
+</odoo>

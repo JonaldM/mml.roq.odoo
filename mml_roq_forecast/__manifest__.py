@@ -20,6 +20,7 @@
         'views/product_template_views.xml',
         'views/res_partner_views.xml',
         'views/res_config_settings_views.xml',
+        'views/roq_order_dashboard_views.xml',
         'views/menus.xml',
         'reports/supplier_order_schedule.xml',
         'reports/supplier_order_schedule_template.xml',

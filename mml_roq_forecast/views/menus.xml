@@ -9,6 +9,12 @@
               parent="menu_mml_operations_root"
               sequence="10"/>
 
+    <menuitem id="menu_roq_order_dashboard"
+              name="Order Dashboard"
+              parent="menu_roq_root"
+              action="action_roq_order_dashboard"
+              sequence="5"/>
+
     <menuitem id="menu_roq_runs"
               name="ROQ Runs"
               parent="menu_roq_root"
