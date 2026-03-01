@@ -12,7 +12,7 @@
                             <field name="supplier_id" readonly="1"/>
                         </group>
                         <group string="Quantity Mode">
-                            <field name="use_containerized" widget="boolean_toggle"/>
+                            <field name="use_containerized"/>
                             <div class="text-muted small" colspan="2">
                                 <strong>ON:</strong> Use ROQ (Containerized) — includes A-tier container padding.<br/>
                                 <strong>OFF:</strong> Use ROQ (Pack Rounded) — demand-driven only, no padding.
