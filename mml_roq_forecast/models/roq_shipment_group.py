@@ -145,3 +145,58 @@ class RoqShipmentGroupLine(models.Model):
     )
     original_ship_date = fields.Date(string='Original Ship Date')
     product_count = fields.Integer(string='SKU Count')
+
+    # Stored related — enables One2many from roq.forecast.run directly to all supplier lines
+    run_id = fields.Many2one(
+        'roq.forecast.run', string='ROQ Run',
+        related='group_id.run_id', store=True, index=True, readonly=True,
+    )
+    # Non-stored related — for display in dashboard Order by Supplier tab
+    container_type = fields.Selection(
+        CONTAINER_TYPES, string='Container',
+        related='group_id.container_type', readonly=True,
+    )
+
+    def action_raise_po_wizard(self):
+        """Open the Raise Draft PO wizard pre-populated for this supplier."""
+        self.ensure_one()
+        run = self.group_id.run_id
+        if not run:
+            raise exceptions.UserError('This shipment group has no linked ROQ run.')
+        if self.purchase_order_id:
+            raise exceptions.UserError(
+                f'A purchase order ({self.purchase_order_id.name}) is already linked to '
+                f'{self.supplier_id.name}. Open it directly or unlink it first.'
+            )
+        forecast_lines = self.env['roq.forecast.line'].search([
+            ('run_id', '=', run.id),
+            ('supplier_id', '=', self.supplier_id.id),
+            ('roq_containerized', '>', 0),
+            ('abc_tier', '!=', 'D'),
+        ], order='product_id')
+        if not forecast_lines:
+            raise exceptions.UserError(
+                f'No active order lines found for {self.supplier_id.name} in run {run.name}.'
+            )
+        wizard = self.env['roq.raise.po.wizard'].create({
+            'run_id': run.id,
+            'supplier_id': self.supplier_id.id,
+            'shipment_group_line_id': self.id,
+            'line_ids': [(0, 0, {
+                'forecast_line_id': fl.id,
+                'product_id': fl.product_id.id,
+                'warehouse_id': fl.warehouse_id.id,
+                'qty_containerized': fl.roq_containerized,
+                'qty_pack_rounded': fl.roq_pack_rounded,
+                'qty_to_order': fl.roq_containerized,
+                'notes': fl.notes or '',
+            }) for fl in forecast_lines],
+        })
+        return {
+            'type': 'ir.actions.act_window',
+            'res_model': 'roq.raise.po.wizard',
+            'res_id': wizard.id,
+            'view_mode': 'form',
+            'target': 'new',
+            'name': f'Raise PO — {self.supplier_id.name}',
+        }
