@@ -103,11 +103,29 @@ Per-supplier overrides (lead time, review interval, service level, FOB port, hol
 | `cbm_per_unit` | Product → ROQ / Procurement tab | Required for container assignment |
 | `pack_size` | Product → ROQ / Procurement tab | Required for pack rounding |
 | `is_roq_managed` | Product → ROQ / Procurement tab | Uncheck to exclude a product |
-| `fob_port` | Supplier → ROQ / Freight tab | Required for FOB consolidation grouping |
+| `purchase_incoterm_id` | Supplier → ROQ / Freight tab | Controls consolidation inclusion — FOB/FCA/EXW included; CIF/DDP/etc. excluded |
+| `fob_port_id` | Supplier → ROQ / Freight tab | Select origin port from the curated UN/LOCODE list — required for consolidation grouping |
+| `destination_port_id` | Supplier → ROQ / Freight tab | Default NZ port of discharge — flows into shipment group |
 | `min_qty` | Supplier → Vendor Prices tab | Required for MOQ enforcement |
 | `supplier_lead_time_days` | Supplier → ROQ / Freight tab | Leave blank to use system default |
 
 SKUs missing `cbm_per_unit` or `pack_size` appear in the **Data Quality** flag on ROQ lines and are excluded from container planning. SKUs missing `min_qty` are flagged by the **Missing MOQ Data** filter in the results view.
+
+Suppliers missing `fob_port_id` are silently excluded from FOB consolidation. Suppliers with a seller-freight incoterm (CIF, CFR, CIP, CPT, DAP, DPU, DDP) are also excluded — the seller is arranging the main freight leg so there is nothing for MML to consolidate.
+
+### Freight Ports
+
+20 ports are seeded on install (**MML Operations → ROQ Forecast → Configuration → Freight Ports**):
+
+| Region | Ports |
+|---|---|
+| China (origin) | CNSHA Shanghai · CNNGB Ningbo-Zhoushan · CNSZX Shenzhen · CNNSA Nansha · CNQIN Qingdao · CNTXG Tianjin · CNXMN Xiamen |
+| Vietnam (origin) | VNHPH Hai Phong · VNSGN Ho Chi Minh City |
+| India (origin) | INNSA Nhava Sheva · INCHP Chennai |
+| Australia | AUSYD Sydney · AUMEL Melbourne · AUBNE Brisbane |
+| New Zealand (destination) | NZAKL Auckland · NZTRG Tauranga · NZNSN Nelson · NZCHC Christchurch · NZDUD Dunedin |
+
+Port seed records use `noupdate="1"` — manual edits in Odoo survive module upgrades. Add new ports via the Configuration menu.
 
 ---
 
@@ -179,6 +197,9 @@ odoo-bin --test-enable -d <db> --test-tags mml_roq_forecast --log-level=test
 | Dormant (Tier D) | ROQ always 0; excluded from container planning |
 | Stock discrepancies | Never auto-corrected — flagged for human review |
 | DSV credentials | Stored in `ir.config_parameter` only — never hardcoded |
+| Port model | `roq.port` with UN/LOCODE (5-char, unique, auto-uppercase) — no free-text port fields |
+| `fob_port` Char | Stored related from `fob_port_id.code` — consolidation grouping key unchanged downstream |
+| Incoterm filter | CIF/CFR/CIP/CPT/DAP/DPU/DDP excluded from consolidation; unset = assumed FOB |
 
 ---
 
@@ -197,6 +218,7 @@ odoo-bin --test-enable -d <db> --test-tags mml_roq_forecast --log-level=test
 | `docs/plans/2026-03-01-sprint-4-forward-plan-freight.md` | Forward plan + DSV freight bridge sprint |
 | `docs/plans/2026-03-02-order-dashboard-po-raise-design.md` | Order Dashboard + Draft PO Raise design |
 | `docs/plans/2026-03-02-order-dashboard-po-raise.md` | Order Dashboard + Draft PO Raise implementation plan |
+
 
 ---
 
