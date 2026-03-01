@@ -66,6 +66,9 @@ class RoqRaisePoWizard(models.TransientModel):
                     'name': wl.product_id.display_name,
                     'product_qty': wl.qty_to_order,
                     'price_unit': price_unit,
+                    # TODO(pre-deploy): verify field names against installed Odoo 19 purchase.order.line
+                    # 'product_uom' is the UoM M2O (no _id suffix — Odoo historical naming)
+                    # 'date_planned' is the scheduled date field name in Odoo 16–18
                     'product_uom': product_uom.id,
                     'date_planned': fields.Date.today(),
                 }))
