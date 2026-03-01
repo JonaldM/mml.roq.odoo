@@ -64,11 +64,11 @@ class ResPartnerRoqExt(models.Model):
             # Find delivered bookings linked to these POs
             bookings = self.env['freight.booking'].search([
                 ('po_ids', 'in', po_ids),
-                ('status', '=', 'delivered'),
-                ('actual_lead_time_days', '>', 0),
+                ('state', '=', 'delivered'),
+                ('transit_days_actual', '>', 0),
             ])
 
-            lead_times = bookings.mapped('actual_lead_time_days')
+            lead_times = bookings.mapped('transit_days_actual')
             if not lead_times:
                 continue
 
