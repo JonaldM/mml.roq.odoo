@@ -5,7 +5,7 @@
         <field name="model">roq.forecast.line</field>
         <field name="arch" type="xml">
             <tree decoration-danger="notes != False and 'REAL OOS' in notes"
-                  decoration-warning="notes != False and 'Safety Stock' in notes"
+                  decoration-warning="notes != False and 'Safety Stock' in notes or moq_flag == True and moq_uplift_qty &gt; 0"
                   decoration-muted="abc_tier == 'D'">
                 <field name="run_id"/>
                 <field name="supplier_id"/>
@@ -26,8 +26,52 @@
                 <field name="container_fill_pct"/>
                 <field name="projected_inventory_at_delivery"/>
                 <field name="weeks_of_cover_at_delivery"/>
+                <field name="supplier_moq" optional="hide"/>
+                <field name="moq_uplift_qty" optional="show"
+                       decoration-warning="moq_uplift_qty &gt; 0"/>
+                <field name="moq_flag" optional="show" widget="boolean" readonly="1"/>
                 <field name="notes"/>
             </tree>
+        </field>
+    </record>
+
+    <record id="view_roq_forecast_line_search" model="ir.ui.view">
+        <field name="name">roq.forecast.line.search</field>
+        <field name="model">roq.forecast.line</field>
+        <field name="arch" type="xml">
+            <search>
+                <field name="product_id" string="Product"/>
+                <field name="supplier_id" string="Supplier"/>
+                <field name="warehouse_id" string="Warehouse"/>
+                <field name="run_id" string="ROQ Run"/>
+                <separator/>
+                <filter string="OOS Risk" name="oos_risk"
+                        domain="[('projected_inventory_at_delivery', '&lt;', 0)]"/>
+                <filter string="Overstock (&gt;52 wks)" name="overstock"
+                        domain="[('weeks_of_cover_at_delivery', '&gt;', 52)]"/>
+                <separator/>
+                <filter string="MOQ Flags" name="moq_flags"
+                        domain="[('moq_flag', '=', True)]"
+                        help="Lines where supplier total was below MOQ before uplift"/>
+                <filter string="Missing MOQ Data" name="missing_moq"
+                        domain="[('supplier_moq', '=', 0), ('roq_containerized', '&gt;', 0)]"
+                        help="Active SKUs with no min_qty set on product.supplierinfo"/>
+                <separator/>
+                <filter string="Tier A" name="tier_a" domain="[('abc_tier', '=', 'A')]"/>
+                <filter string="Tier B" name="tier_b" domain="[('abc_tier', '=', 'B')]"/>
+                <filter string="Tier C" name="tier_c" domain="[('abc_tier', '=', 'C')]"/>
+                <filter string="Dormant (D)" name="tier_d" domain="[('abc_tier', '=', 'D')]"/>
+                <group expand="0" string="Group By">
+                    <filter string="Supplier" name="group_supplier"
+                            context="{'group_by': 'supplier_id'}"/>
+                    <filter string="Warehouse" name="group_warehouse"
+                            context="{'group_by': 'warehouse_id'}"/>
+                    <filter string="ABC Tier" name="group_tier"
+                            context="{'group_by': 'abc_tier'}"/>
+                    <filter string="Container Type" name="group_container"
+                            context="{'group_by': 'container_type'}"/>
+                </group>
+            </search>
         </field>
     </record>
 
@@ -35,5 +79,6 @@
         <field name="name">ROQ Lines</field>
         <field name="res_model">roq.forecast.line</field>
         <field name="view_mode">tree</field>
+        <field name="search_view_id" ref="view_roq_forecast_line_search"/>
     </record>
 </odoo>

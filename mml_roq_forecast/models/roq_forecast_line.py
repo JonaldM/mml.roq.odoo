@@ -77,4 +77,20 @@ class RoqForecastLine(models.Model):
     weeks_of_cover_at_delivery = fields.Float(
         string='Weeks Cover at Delivery', digits=(6, 1),
     )
+
+    # MOQ
+    supplier_moq = fields.Float(
+        string='Supplier MOQ', default=0.0,
+        help='Snapshot of product.supplierinfo.min_qty at run time. 0 = not set.',
+    )
+    moq_uplift_qty = fields.Float(
+        string='MOQ Uplift Units', default=0.0,
+        help='Units added to this warehouse line due to MOQ uplift.',
+    )
+    moq_flag = fields.Boolean(
+        string='Below MOQ',
+        help="True if this SKU's supplier aggregate was below MOQ before uplift. "
+             "Set regardless of enforcement toggle.",
+    )
+
     notes = fields.Char(string='Flags / Warnings')

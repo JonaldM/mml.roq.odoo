@@ -21,3 +21,4 @@ from . import test_forward_plan_generator
 from . import test_proactive_consolidation
 from . import test_reports
 from . import test_lead_time_feedback
+from . import test_moq_enforcer

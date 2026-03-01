@@ -33,6 +33,11 @@ class RoqForecastRun(models.Model):
     total_skus_reorder = fields.Integer(string='SKUs with ROQ > 0', readonly=True)
     total_skus_oos_risk = fields.Integer(string='SKUs at OOS Risk', readonly=True)
 
+    enable_moq_enforcement = fields.Boolean(
+        string='MOQ Enforcement Active', default=True,
+        help='Parameter snapshot: was MOQ enforcement active for this run.',
+    )
+
     line_ids = fields.One2many('roq.forecast.line', 'run_id', string='Result Lines')
     notes = fields.Text(string='Run Log / Errors')
 
@@ -54,6 +59,7 @@ class RoqForecastRun(models.Model):
             'default_lead_time_days': int(get('roq.default_lead_time_days', 100)),
             'default_review_interval_days': int(get('roq.default_review_interval_days', 30)),
             'default_service_level': float(get('roq.default_service_level', 0.97)),
+            'enable_moq_enforcement': get('roq.enable_moq_enforcement', 'True') == 'True',
         })
         pipeline = RoqPipeline(self.env)
         pipeline.run(self)

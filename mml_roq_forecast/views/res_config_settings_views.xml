@@ -54,6 +54,20 @@
                                 <field name="roq_container_lcl_threshold_pct"/>
                             </div>
                         </div>
+                        <div class="col-12 o_setting_box">
+                            <div class="o_setting_left_pane">
+                                <field name="roq_enable_moq_enforcement" widget="boolean_toggle"/>
+                            </div>
+                            <div class="o_setting_right_pane">
+                                <label for="roq_enable_moq_enforcement" string="Enforce Supplier MOQs"/>
+                                <div class="text-muted">
+                                    When enabled, orders below the supplier minimum order quantity are
+                                    raised to the minimum and extra units allocated to the warehouse
+                                    with lowest cover. When disabled, the MOQ flag is still shown but
+                                    quantities are unchanged — useful during initial MOQ data population.
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </xpath>
