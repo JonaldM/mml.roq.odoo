@@ -905,3 +905,4 @@ git commit -m "feat(roq): add product and supplier form extensions for ROQ/freig
 - [ ] Product form: ABC tier is read-only (calculated), override is editable
 - [ ] Supplier form: ROQ overrides only visible for supplier records
 - [ ] Push/pull reason text shows max push/pull days on each supplier line
+- [ ] Consolidation `cbm_total` uses MOQ-adjusted quantities (`roq_containerized` which already reflects uplift from Sprint 2 Task 6/7 — no consolidation-layer change required, this is a dependency check)

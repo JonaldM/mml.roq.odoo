@@ -99,21 +99,27 @@ Sprint 0 → Sprint 1 → Sprint 2 → Sprint 3 → Sprint 4
 ### Deliverables
 - (s,S) inventory policy: Out Level, Order-Up-To, ROQ Raw calculation
 - Pack size rounding (round up to nearest multiple)
+- MOQ enforcement (Step 7 in pipeline): raise per-supplier total to `product.supplierinfo.min_qty` when below; distribute uplift to lowest-cover warehouse; flag all affected lines
 - Container fitting algorithm (greedy CBM assignment, LCL/FCL recommendation, padding)
-- Full ROQ pipeline: ABCD → forecast → SS → ROQ → pack-round → container fit
+- Full ROQ pipeline: ABCD → forecast → SS → ROQ → pack-round → aggregate → **MOQ enforce** → container fit
 - Weekly `ir.cron` trigger
-- Alerts & flags (OOS risk, safety stock breach, overstock, missing data)
+- Alerts & flags (OOS risk, safety stock breach, overstock, missing data, **below MOQ**, **missing MOQ data**)
 - ROQ results UI: tree view with color-coded alerts, form view with calculation trace
+- Settings toggle: "Enforce Supplier MOQs" (on by default); when off, flag is shown but quantities unchanged
+- Dashboard filters: **MOQ Flags** and **Missing MOQ Data** quick-filters on ROQ results tree
 
 ### Key Services
 - `roq_calculator.py` — `calculate_roq(forecast_line)`, `aggregate_by_supplier()`
 - `container_fitter.py` — `fit_containers(supplier_lines)`, `allocate_padding()`
+- `moq_enforcer.py` — `MoqEnforcer.enforce(lines, enforce, max_padding_weeks_cover)`
 
 ### Done When
 - ROQ output matches spreadsheet line-by-line (same parameters, same input data)
-- All 5 alert types display correctly in UI
+- All 5 original alert types display correctly in UI
+- Below MOQ alert and Missing MOQ Data alert display correctly
 - Weekly cron runs without error on dev instance
 - Dormant SKUs never generate ROQ > 0
+- MOQ toggle off → flag still computed, quantities not raised
 
 ---
 
@@ -188,6 +194,10 @@ Sprint 0 → Sprint 1 → Sprint 2 → Sprint 3 → Sprint 4
 - [ ] Dormant SKUs: ROQ always = 0
 - [ ] New SKUs: default Tier A, use σ fallback
 - [ ] Push/pull never delays an order with real OOS risk
+- [ ] MOQ enforcement on: no supplier total less than `product.supplierinfo.min_qty` (where set)
+- [ ] MOQ enforcement off: `moq_flag` still set where applicable, `moq_uplift_qty` always 0
+- [ ] `supplier_moq = 0` on a line → no flag, no uplift regardless of toggle state
+- [ ] SKUs without `product.supplierinfo.min_qty` appear in Missing MOQ Data filter when enforcement is on
 
 ---
 

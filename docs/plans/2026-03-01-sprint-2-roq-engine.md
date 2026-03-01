@@ -1098,6 +1098,339 @@ git commit -m "feat(roq): add ROQ run and results UI with alert color coding"
 
 ---
 
+---
+
+## Task 6: MOQ enforcement service
+
+**Files:**
+- Modify: `mml_roq_forecast/models/roq_forecast_run.py` — add `enable_moq_enforcement` field
+- Modify: `mml_roq_forecast/models/roq_forecast_line.py` — add `supplier_moq`, `moq_uplift_qty`, `moq_flag`
+- Modify: `mml_roq_forecast/models/res_config_settings_ext.py` — add `roq_enable_moq_enforcement`
+- Create: `mml_roq_forecast/services/moq_enforcer.py`
+- Create: `mml_roq_forecast/tests/test_moq_enforcer.py`
+
+**Step 1: Write failing tests**
+
+```python
+# mml_roq_forecast/tests/test_moq_enforcer.py
+from odoo.tests.common import TransactionCase
+from ..services.moq_enforcer import MoqEnforcer
+
+
+class TestMoqEnforcer(TransactionCase):
+
+    def setUp(self):
+        super().setUp()
+        warehouses = self.env['stock.warehouse'].search([])
+        self.wh1 = warehouses[0]
+        self.wh2 = warehouses[1] if len(warehouses) > 1 else warehouses[0]
+
+    def _lines(self, supplier_moq, lines_data):
+        return [dict(d, supplier_moq=supplier_moq) for d in lines_data]
+
+    # --- enforce=True ---
+
+    def test_no_uplift_when_at_or_above_moq(self):
+        lines = self._lines(100, [
+            {'warehouse_id': self.wh1.id, 'roq_pack_rounded': 60.0, 'weeks_of_cover_at_delivery': 8.0},
+            {'warehouse_id': self.wh2.id, 'roq_pack_rounded': 50.0, 'weeks_of_cover_at_delivery': 10.0},
+        ])
+        result = MoqEnforcer.enforce(lines, enforce=True)
+        self.assertEqual(result[0]['moq_uplift_qty'], 0.0)
+        self.assertEqual(result[1]['moq_uplift_qty'], 0.0)
+        self.assertFalse(result[0]['moq_flag'])
+
+    def test_uplift_to_lowest_cover_warehouse(self):
+        # Total ROQ = 80, MOQ = 100 → uplift = 20 → goes to wh1 (cover=4 < cover=12)
+        lines = self._lines(100, [
+            {'warehouse_id': self.wh1.id, 'roq_pack_rounded': 40.0, 'weeks_of_cover_at_delivery': 4.0},
+            {'warehouse_id': self.wh2.id, 'roq_pack_rounded': 40.0, 'weeks_of_cover_at_delivery': 12.0},
+        ])
+        result = MoqEnforcer.enforce(lines, enforce=True)
+        wh1 = next(r for r in result if r['warehouse_id'] == self.wh1.id)
+        wh2 = next(r for r in result if r['warehouse_id'] == self.wh2.id)
+        self.assertEqual(wh1['moq_uplift_qty'], 20.0)
+        self.assertEqual(wh2['moq_uplift_qty'], 0.0)
+        self.assertTrue(wh1['moq_flag'])  # All lines flagged — entire SKU below MOQ
+        self.assertTrue(wh2['moq_flag'])
+
+    def test_uplift_skips_warehouse_over_cover_cap(self):
+        # wh1 already at 30 wks (> cap 26) → uplift goes to wh2
+        lines = self._lines(200, [
+            {'warehouse_id': self.wh1.id, 'roq_pack_rounded': 10.0, 'weeks_of_cover_at_delivery': 30.0},
+            {'warehouse_id': self.wh2.id, 'roq_pack_rounded': 10.0, 'weeks_of_cover_at_delivery': 8.0},
+        ])
+        result = MoqEnforcer.enforce(lines, enforce=True, max_padding_weeks_cover=26)
+        wh2 = next(r for r in result if r['warehouse_id'] == self.wh2.id)
+        self.assertGreater(wh2['moq_uplift_qty'], 0.0)
+
+    def test_zero_moq_means_no_enforcement(self):
+        lines = self._lines(0, [
+            {'warehouse_id': self.wh1.id, 'roq_pack_rounded': 5.0, 'weeks_of_cover_at_delivery': 2.0},
+        ])
+        result = MoqEnforcer.enforce(lines, enforce=True)
+        self.assertEqual(result[0]['moq_uplift_qty'], 0.0)
+        self.assertFalse(result[0]['moq_flag'])
+
+    # --- enforce=False ---
+
+    def test_flag_set_but_no_uplift_when_enforcement_disabled(self):
+        lines = self._lines(100, [
+            {'warehouse_id': self.wh1.id, 'roq_pack_rounded': 30.0, 'weeks_of_cover_at_delivery': 5.0},
+            {'warehouse_id': self.wh2.id, 'roq_pack_rounded': 30.0, 'weeks_of_cover_at_delivery': 6.0},
+        ])
+        result = MoqEnforcer.enforce(lines, enforce=False)
+        self.assertTrue(result[0]['moq_flag'])
+        self.assertTrue(result[1]['moq_flag'])
+        self.assertEqual(result[0]['moq_uplift_qty'], 0.0)  # No uplift when off
+        self.assertEqual(result[1]['moq_uplift_qty'], 0.0)
+        self.assertEqual(result[0]['roq_pack_rounded'], 30.0)  # Qty unchanged
+
+    def test_no_flag_when_above_moq_and_enforcement_disabled(self):
+        lines = self._lines(50, [
+            {'warehouse_id': self.wh1.id, 'roq_pack_rounded': 60.0, 'weeks_of_cover_at_delivery': 8.0},
+        ])
+        result = MoqEnforcer.enforce(lines, enforce=False)
+        self.assertFalse(result[0]['moq_flag'])
+
+    def test_all_warehouses_over_cap_still_gets_uplift(self):
+        # Safety valve: all warehouses over cover cap → uplift to tightest anyway
+        lines = self._lines(100, [
+            {'warehouse_id': self.wh1.id, 'roq_pack_rounded': 10.0, 'weeks_of_cover_at_delivery': 28.0},
+            {'warehouse_id': self.wh2.id, 'roq_pack_rounded': 10.0, 'weeks_of_cover_at_delivery': 30.0},
+        ])
+        result = MoqEnforcer.enforce(lines, enforce=True, max_padding_weeks_cover=26)
+        total_uplift = sum(r['moq_uplift_qty'] for r in result)
+        self.assertEqual(total_uplift, 80.0)  # 100 MOQ - 20 total ROQ = 80
+```
+
+**Step 2: Run to verify fails**
+
+```bash
+odoo-bin --test-enable -d dev --test-tags /mml_roq_forecast:TestMoqEnforcer
+```
+
+**Step 3: Add schema fields (from Sprint 0 Amendment)**
+
+`roq_forecast_run.py` — add `enable_moq_enforcement` Boolean field.
+`roq_forecast_line.py` — add `supplier_moq`, `moq_uplift_qty`, `moq_flag` fields.
+`res_config_settings_ext.py` — add `roq_enable_moq_enforcement` Boolean field.
+
+(Full field definitions in Sprint 0 Amendment section.)
+
+**Step 4: Implement**
+
+```python
+# mml_roq_forecast/services/moq_enforcer.py
+"""
+MOQ Enforcement Service.
+
+Applies after supplier aggregation (Step 6 of ROQ pipeline), before container fitting.
+Per-supplier: reads supplier_moq pre-populated from product.supplierinfo.min_qty.
+If total ROQ across warehouses < MOQ, distributes uplift to warehouse(s) with
+lowest weeks_of_cover_at_delivery, skipping any already at or above the cover cap.
+
+enforce=True  — raises quantities, sets moq_uplift_qty and moq_flag on all lines
+enforce=False — sets moq_flag only; quantities unchanged (scenario / data-loading mode)
+
+Per spec §2.2a:
+  - moq <= 0        → no enforcement (treated as no minimum)
+  - moq_flag set on ALL lines for a SKU when that SKU's total is below MOQ
+  - If all warehouses are over the cover cap, uplift still goes to tightest (safety valve)
+"""
+
+
+class MoqEnforcer:
+
+    @staticmethod
+    def enforce(lines, enforce=True, max_padding_weeks_cover=26):
+        """
+        lines: list of dicts, each with:
+            warehouse_id, roq_pack_rounded, weeks_of_cover_at_delivery, supplier_moq
+        Returns: same list with moq_uplift_qty and moq_flag populated.
+        """
+        if not lines:
+            return lines
+
+        moq = lines[0].get('supplier_moq', 0.0) or 0.0
+        total_roq = sum(l['roq_pack_rounded'] for l in lines)
+
+        # Initialise output fields
+        for line in lines:
+            line.setdefault('moq_uplift_qty', 0.0)
+            line['moq_flag'] = False
+
+        if moq <= 0 or total_roq >= moq:
+            return lines  # No enforcement needed
+
+        # Entire SKU is below MOQ — flag all lines
+        for line in lines:
+            line['moq_flag'] = True
+
+        if not enforce:
+            return lines  # Flag only, no quantity change
+
+        uplift_remaining = moq - total_roq
+
+        # Distribute uplift: eligible = warehouses below cover cap, sorted by ascending cover
+        eligible = [l for l in lines if l.get('weeks_of_cover_at_delivery', 0) < max_padding_weeks_cover]
+        eligible.sort(key=lambda l: l.get('weeks_of_cover_at_delivery', 0))
+
+        for line in eligible:
+            if uplift_remaining <= 0:
+                break
+            line['moq_uplift_qty'] = line.get('moq_uplift_qty', 0.0) + uplift_remaining
+            line['roq_pack_rounded'] += uplift_remaining
+            uplift_remaining = 0
+
+        # Safety valve: all warehouses over cap → put uplift on tightest
+        if uplift_remaining > 0 and lines:
+            tightest = min(lines, key=lambda l: l.get('weeks_of_cover_at_delivery', 0))
+            tightest['moq_uplift_qty'] = tightest.get('moq_uplift_qty', 0.0) + uplift_remaining
+            tightest['roq_pack_rounded'] += uplift_remaining
+
+        return lines
+```
+
+**Step 5: Run tests**
+
+```bash
+odoo-bin --test-enable -d dev -u mml_roq_forecast --test-tags /mml_roq_forecast:TestMoqEnforcer
+```
+Expected: All 7 tests PASS
+
+**Step 6: Commit**
+
+```bash
+git add mml_roq_forecast/models/roq_forecast_run.py \
+        mml_roq_forecast/models/roq_forecast_line.py \
+        mml_roq_forecast/models/res_config_settings_ext.py \
+        mml_roq_forecast/services/moq_enforcer.py \
+        mml_roq_forecast/tests/test_moq_enforcer.py
+git commit -m "feat(roq): add MOQ enforcement service with flag-only mode when toggle off"
+```
+
+---
+
+## Task 7: MOQ pipeline integration, settings toggle, and dashboard filter
+
+**Files:**
+- Modify: `mml_roq_forecast/services/roq_pipeline.py`
+- Modify: `mml_roq_forecast/views/res_config_settings_views.xml`
+- Modify: `mml_roq_forecast/views/roq_forecast_line_views.xml`
+
+**Step 1: No isolated unit test — pipeline integration is verified end-to-end in manual validation.**
+
+**Step 2: Wire MoqEnforcer into pipeline**
+
+In `mml_roq_forecast/services/roq_pipeline.py`, in the per-supplier processing section after Step 6 (aggregate by supplier) and before Step 8 (container fitting):
+
+```python
+from .moq_enforcer import MoqEnforcer
+
+# Resolve settings
+enforce_moq = self.env['ir.config_parameter'].sudo().get_param(
+    'roq.enable_moq_enforcement', 'True'
+) == 'True'
+max_cover = int(self.env['ir.config_parameter'].sudo().get_param(
+    'roq.max_padding_weeks_cover', 26
+))
+
+# Snapshot onto run header (before looping suppliers)
+forecast_run.enable_moq_enforcement = enforce_moq
+
+# Per-supplier MOQ enforcement (Step 7)
+for supplier_id, supplier_lines in lines_by_supplier.items():
+    for line_data in supplier_lines:
+        supplierinfo = self.env['product.supplierinfo'].search([
+            ('partner_id', '=', supplier_id),
+            ('product_tmpl_id', '=', line_data['product_tmpl_id']),
+        ], order='id desc', limit=1)
+        line_data['supplier_moq'] = supplierinfo.min_qty if supplierinfo else 0.0
+
+    MoqEnforcer.enforce(
+        supplier_lines,
+        enforce=enforce_moq,
+        max_padding_weeks_cover=max_cover,
+    )
+
+# When writing roq.forecast.line records, include the three new fields:
+#   'supplier_moq':    line_data.get('supplier_moq', 0.0),
+#   'moq_uplift_qty':  line_data.get('moq_uplift_qty', 0.0),
+#   'moq_flag':        line_data.get('moq_flag', False),
+```
+
+**Step 3: Add settings toggle to config view**
+
+In `mml_roq_forecast/views/res_config_settings_views.xml`, add inside the ROQ settings container (after the existing parameter fields):
+
+```xml
+<div class="col-12 col-lg-6 o_setting_box">
+    <div class="o_setting_left_pane">
+        <field name="roq_enable_moq_enforcement" widget="toggle_button"/>
+    </div>
+    <div class="o_setting_right_pane">
+        <label for="roq_enable_moq_enforcement" string="Enforce Supplier MOQs"/>
+        <div class="text-muted">
+            When enabled, orders below the supplier minimum order quantity are raised
+            to the minimum and the extra units allocated to the warehouse with lowest
+            cover. When disabled, the MOQ flag is still shown but quantities are
+            unchanged — useful during initial MOQ data population.
+        </div>
+    </div>
+</div>
+```
+
+**Step 4: Add MOQ columns and filters to ROQ results tree view**
+
+In `mml_roq_forecast/views/roq_forecast_line_views.xml`, update the tree view — add after `padding_units`:
+
+```xml
+<field name="supplier_moq" optional="hide"/>
+<field name="moq_uplift_qty" optional="show"
+       decoration-warning="moq_uplift_qty &gt; 0"/>
+<field name="moq_flag" optional="show" widget="boolean" readonly="1"
+       decoration-danger="moq_flag == True"/>
+```
+
+Add to the search view (with a separator before the MOQ group):
+
+```xml
+<separator/>
+<filter string="MOQ Flags" name="moq_flags"
+        domain="[('moq_flag', '=', True)]"
+        help="Lines where supplier total was below MOQ before uplift"/>
+<filter string="Missing MOQ Data" name="missing_moq"
+        domain="[('supplier_moq', '=', 0), ('roq_containerized', '&gt;', 0)]"
+        help="Active SKUs with no min_qty set on product.supplierinfo"/>
+```
+
+**Step 5: Install and verify**
+
+```bash
+odoo-bin -d dev -u mml_roq_forecast --stop-after-init
+```
+
+Check:
+- Settings page shows "Enforce Supplier MOQs" toggle, on by default
+- Run a ROQ cycle; lines for SKUs below MOQ show `moq_flag = True` (highlighted red)
+- `moq_uplift_qty > 0` shows amber highlight on the receiving warehouse line
+- Filter "MOQ Flags" scopes the tree to flagged lines only
+- Filter "Missing MOQ Data" surfaces SKUs with no MOQ configured
+- Toggle off → re-run → `moq_flag` still set, `moq_uplift_qty` = 0, quantities unchanged
+- `roq.forecast.run` header shows `enable_moq_enforcement` matching the setting at run time
+
+**Step 6: Commit**
+
+```bash
+git add mml_roq_forecast/services/roq_pipeline.py \
+        mml_roq_forecast/views/res_config_settings_views.xml \
+        mml_roq_forecast/views/roq_forecast_line_views.xml
+git commit -m "feat(roq): wire MOQ enforcement into pipeline; add settings toggle and dashboard MOQ filters"
+```
+
+---
+
 ## Sprint 2 Done Checklist
 
 - [ ] All tests pass: `odoo-bin --test-enable -d dev --test-tags mml_roq_forecast`
@@ -1111,3 +1444,11 @@ git commit -m "feat(roq): add ROQ run and results UI with alert color coding"
 - [ ] Overstock warning appears when weeks cover > 52
 - [ ] Missing CBM/pack size flag appears when product data incomplete
 - [ ] Weekly cron set to `active=False` — Harold to enable manually after validation
+- [ ] MOQ enforcement: total across warehouses < MOQ → uplift applied to lowest-cover warehouse
+- [ ] MOQ enforcement: `moq_flag` set on all lines for a SKU when below MOQ
+- [ ] MOQ enforcement: `supplier_moq = 0` → no enforcement, no flag
+- [ ] Toggle off → `moq_flag` still set, `moq_uplift_qty = 0`, quantities unchanged
+- [ ] Settings page: "Enforce Supplier MOQs" toggle saves to `roq.enable_moq_enforcement`
+- [ ] Dashboard: "MOQ Flags" filter shows only `moq_flag = True` lines
+- [ ] Dashboard: "Missing MOQ Data" filter surfaces SKUs with no `min_qty` on `product.supplierinfo`
+- [ ] `roq.forecast.run` header snapshots `enable_moq_enforcement` at time of run

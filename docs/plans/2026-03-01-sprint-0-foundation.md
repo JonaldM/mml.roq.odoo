@@ -1316,3 +1316,56 @@ git commit -m "feat(roq): add settings, sequences, security, and stub views — 
 - [ ] `roq.shipment.group` uses `state` field (not `status`)
 - [ ] `roq.shipment.group` has `po_ids`, `actual_delivery_date`, `origin_port`, `destination_port`
 - [ ] All tests pass: `odoo-bin --test-enable -d dev --test-tags mml_roq_forecast`
+
+---
+
+## Amendment (2026-03-02): MOQ Schema Fields
+
+Added post-Sprint-0 as part of the MOQ enforcement feature. Apply these additions during Sprint 2 Task 6 (`-u mml_roq_forecast` will migrate the schema).
+
+### roq.forecast.line — 3 new fields
+
+Add to `mml_roq_forecast/models/roq_forecast_line.py`:
+
+```python
+supplier_moq = fields.Float(
+    string='Supplier MOQ', default=0.0,
+    help='Snapshot of product.supplierinfo.min_qty at run time. 0 = not set.',
+)
+moq_uplift_qty = fields.Float(
+    string='MOQ Uplift Units', default=0.0,
+    help='Units added to this warehouse line due to MOQ uplift.',
+)
+moq_flag = fields.Boolean(
+    string='Below MOQ',
+    help="True if this SKU's supplier aggregate was below MOQ before uplift. "
+         "Set regardless of enforcement toggle.",
+)
+```
+
+### roq.forecast.run — 1 new field
+
+Add to `mml_roq_forecast/models/roq_forecast_run.py`:
+
+```python
+enable_moq_enforcement = fields.Boolean(
+    string='MOQ Enforcement Active', default=True,
+    help='Parameter snapshot: was MOQ enforcement active for this run.',
+)
+```
+
+### res.config.settings — 1 new parameter
+
+Add to `mml_roq_forecast/models/res_config_settings_ext.py`:
+
+```python
+roq_enable_moq_enforcement = fields.Boolean(
+    string='Enforce Supplier MOQs',
+    config_parameter='roq.enable_moq_enforcement',
+    default=True,
+    help='When enabled, orders below supplier MOQ are raised to minimum. '
+         'When disabled, the MOQ flag is still computed for visibility.',
+)
+```
+
+The view XML for this setting is added in Sprint 2 Task 7.
