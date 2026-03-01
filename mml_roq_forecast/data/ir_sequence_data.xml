@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="seq_roq_forecast_run" model="ir.sequence">
+        <field name="name">ROQ Forecast Run</field>
+        <field name="code">roq.forecast.run</field>
+        <field name="prefix">ROQ-%(year)s-W</field>
+        <field name="padding">2</field>
+    </record>
+    <record id="seq_roq_shipment_group" model="ir.sequence">
+        <field name="name">ROQ Shipment Group</field>
+        <field name="code">roq.shipment.group</field>
+        <field name="prefix">SG-%(year)s-</field>
+        <field name="padding">4</field>
+    </record>
+    <record id="seq_roq_forward_plan" model="ir.sequence">
+        <field name="name">ROQ Forward Plan</field>
+        <field name="code">roq.forward.plan</field>
+        <field name="prefix">FP-%(year)s-</field>
+        <field name="padding">4</field>
+    </record>
+</odoo>

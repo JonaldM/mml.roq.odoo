@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_roq_forecast_run" model="ir.actions.act_window">
+        <field name="name">ROQ Runs</field>
+        <field name="res_model">roq.forecast.run</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+</odoo>

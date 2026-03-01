@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="action_roq_shipment_group" model="ir.actions.act_window">
+        <field name="name">Shipment Groups</field>
+        <field name="res_model">roq.shipment.group</field>
+        <field name="view_mode">tree,form</field>
+    </record>
+</odoo>

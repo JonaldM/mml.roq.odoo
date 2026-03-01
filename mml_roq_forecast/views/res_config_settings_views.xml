@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="res_config_settings_view_roq" model="ir.ui.view">
+        <field name="name">res.config.settings.view.roq</field>
+        <field name="model">res.config.settings</field>
+        <field name="inherit_id" ref="base_setup.action_general_configuration"/>
+        <field name="arch" type="xml">
+            <xpath expr="//div[hasclass('settings')]" position="inside">
+                <div class="app_settings_block" string="ROQ Forecast" data-string="ROQ Forecast">
+                    <h2>ROQ Forecast Parameters</h2>
+                    <div class="row mt16 o_settings_container">
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_right_pane">
+                                <label string="Default Lead Time (Days)" for="roq_default_lead_time_days"/>
+                                <div class="text-muted">System-wide default. Overridden per-supplier.</div>
+                                <field name="roq_default_lead_time_days"/>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_right_pane">
+                                <label string="Default Review Interval (Days)" for="roq_default_review_interval_days"/>
+                                <field name="roq_default_review_interval_days"/>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_right_pane">
+                                <label string="Lookback Weeks" for="roq_lookback_weeks"/>
+                                <div class="text-muted">156 = 3 years history</div>
+                                <field name="roq_lookback_weeks"/>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_right_pane">
+                                <label string="SMA Window (Weeks)" for="roq_sma_window_weeks"/>
+                                <field name="roq_sma_window_weeks"/>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_right_pane">
+                                <label string="Min N Value" for="roq_min_n_value"/>
+                                <div class="text-muted">Min data points for reliable std dev</div>
+                                <field name="roq_min_n_value"/>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_right_pane">
+                                <label string="ABC Dampener (Weeks)" for="roq_abc_dampener_weeks"/>
+                                <field name="roq_abc_dampener_weeks"/>
+                            </div>
+                        </div>
+                        <div class="col-12 col-lg-6 o_setting_box">
+                            <div class="o_setting_right_pane">
+                                <label string="Container LCL Threshold (%)" for="roq_container_lcl_threshold_pct"/>
+                                <field name="roq_container_lcl_threshold_pct"/>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </xpath>
+        </field>
+    </record>
+</odoo>
