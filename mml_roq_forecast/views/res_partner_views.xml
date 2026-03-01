@@ -1,4 +1,34 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <!-- Full supplier ROQ tab added in Sprint 3 -->
+    <record id="view_res_partner_roq_ext" model="ir.ui.view">
+        <field name="name">res.partner.roq.ext</field>
+        <field name="model">res.partner</field>
+        <field name="inherit_id" ref="base.view_partner_form"/>
+        <field name="arch" type="xml">
+            <notebook position="inside">
+                <page string="ROQ / Freight" name="roq_freight_tab"
+                      attrs="{'invisible': [('supplier_rank', '=', 0)]}">
+                    <group>
+                        <group string="Freight">
+                            <field name="fob_port"/>
+                            <field name="avg_lead_time_actual" readonly="1"/>
+                            <field name="lead_time_std_dev" readonly="1"/>
+                            <field name="lead_time_on_time_pct" readonly="1"/>
+                        </group>
+                        <group string="ROQ Parameter Overrides">
+                            <field name="supplier_lead_time_days"
+                                   placeholder="Leave blank = system default"/>
+                            <field name="supplier_review_interval_days"
+                                   placeholder="Leave blank = system default"/>
+                            <field name="supplier_service_level"
+                                   placeholder="Leave blank = ABC tier rate"/>
+                            <field name="override_expiry_date"/>
+                            <field name="supplier_holiday_periods"
+                                   placeholder='[{"start": "2026-01-28", "end": "2026-02-10", "reason": "CNY"}]'/>
+                        </group>
+                    </group>
+                </page>
+            </notebook>
+        </field>
+    </record>
 </odoo>

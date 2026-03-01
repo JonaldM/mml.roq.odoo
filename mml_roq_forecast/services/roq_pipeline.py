@@ -72,6 +72,11 @@ class RoqPipeline:
                 'total_skus_oos_risk': skus_oos,
             })
 
+            # Step 8: Reactive consolidation (creates shipment groups by FOB port)
+            from .consolidation_engine import ConsolidationEngine
+            con_engine = ConsolidationEngine(self.env)
+            con_engine.create_reactive_shipment_groups(forecast_run)
+
         except Exception as e:
             forecast_run.write({
                 'status': 'error',

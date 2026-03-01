@@ -14,3 +14,6 @@ from . import test_inventory_query
 from . import test_roq_calculator
 from . import test_container_fitter
 from . import test_roq_pipeline
+from . import test_push_pull
+from . import test_consolidation_engine
+from . import test_shipment_workflow
