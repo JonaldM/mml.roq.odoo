@@ -10,3 +10,7 @@ from . import test_forecast_methods
 from . import test_safety_stock
 from . import test_abc_classifier
 from . import test_settings_helper
+from . import test_inventory_query
+from . import test_roq_calculator
+from . import test_container_fitter
+from . import test_roq_pipeline

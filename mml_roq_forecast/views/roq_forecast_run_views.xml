@@ -1,5 +1,88 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <record id="view_roq_forecast_run_tree" model="ir.ui.view">
+        <field name="name">roq.forecast.run.tree</field>
+        <field name="model">roq.forecast.run</field>
+        <field name="arch" type="xml">
+            <tree>
+                <field name="name"/>
+                <field name="run_date"/>
+                <field name="status" widget="badge"
+                       decoration-success="status == 'complete'"
+                       decoration-warning="status == 'running'"
+                       decoration-danger="status == 'error'"/>
+                <field name="total_skus_processed"/>
+                <field name="total_skus_reorder"/>
+                <field name="total_skus_oos_risk"
+                       decoration-danger="total_skus_oos_risk &gt; 0"/>
+            </tree>
+        </field>
+    </record>
+
+    <record id="view_roq_forecast_run_form" model="ir.ui.view">
+        <field name="name">roq.forecast.run.form</field>
+        <field name="model">roq.forecast.run</field>
+        <field name="arch" type="xml">
+            <form>
+                <header>
+                    <button name="action_run" string="Run Now"
+                            type="object" class="btn-primary"
+                            attrs="{'invisible': [('status', 'in', ['running', 'complete'])]}"/>
+                    <field name="status" widget="statusbar"
+                           statusbar_visible="draft,running,complete"/>
+                </header>
+                <sheet>
+                    <div class="oe_title">
+                        <h1><field name="name"/></h1>
+                    </div>
+                    <group>
+                        <group string="Run Info">
+                            <field name="run_date"/>
+                            <field name="total_skus_processed"/>
+                            <field name="total_skus_reorder"/>
+                            <field name="total_skus_oos_risk"/>
+                        </group>
+                        <group string="Parameters (Snapshot)">
+                            <field name="lookback_weeks"/>
+                            <field name="sma_window_weeks"/>
+                            <field name="default_lead_time_days"/>
+                            <field name="default_review_interval_days"/>
+                        </group>
+                    </group>
+                    <notebook>
+                        <page string="Results">
+                            <field name="line_ids">
+                                <tree decoration-danger="notes != False and 'REAL OOS' in notes"
+                                      decoration-warning="notes != False and 'Safety Stock' in notes"
+                                      decoration-muted="abc_tier == 'D'">
+                                    <field name="supplier_id"/>
+                                    <field name="product_id"/>
+                                    <field name="warehouse_id"/>
+                                    <field name="abc_tier" widget="badge"/>
+                                    <field name="soh"/>
+                                    <field name="forecasted_weekly_demand"/>
+                                    <field name="forecast_method"/>
+                                    <field name="safety_stock"/>
+                                    <field name="inventory_position"/>
+                                    <field name="roq_pack_rounded"/>
+                                    <field name="roq_containerized"/>
+                                    <field name="container_type"/>
+                                    <field name="container_fill_pct"/>
+                                    <field name="projected_inventory_at_delivery"/>
+                                    <field name="weeks_of_cover_at_delivery"/>
+                                    <field name="notes"/>
+                                </tree>
+                            </field>
+                        </page>
+                        <page string="Run Log">
+                            <field name="notes" widget="text"/>
+                        </page>
+                    </notebook>
+                </sheet>
+            </form>
+        </field>
+    </record>
+
     <record id="action_roq_forecast_run" model="ir.actions.act_window">
         <field name="name">ROQ Runs</field>
         <field name="res_model">roq.forecast.run</field>

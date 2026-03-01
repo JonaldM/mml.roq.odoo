@@ -36,6 +36,24 @@ class RoqForecastRun(models.Model):
     line_ids = fields.One2many('roq.forecast.line', 'run_id', string='Result Lines')
     notes = fields.Text(string='Run Log / Errors')
 
+    @api.model
     def cron_run_weekly_roq(self):
-        """Called by ir.cron. Stub — implemented in Sprint 2."""
-        pass
+        """Called by ir.cron weekly trigger."""
+        run = self.create({})
+        run.action_run()
+
+    def action_run(self):
+        """User-triggered or cron-triggered ROQ run."""
+        self.ensure_one()
+        from ..services.roq_pipeline import RoqPipeline
+        # Snapshot current settings on the run header
+        get = self.env['ir.config_parameter'].sudo().get_param
+        self.write({
+            'lookback_weeks': int(get('roq.lookback_weeks', 156)),
+            'sma_window_weeks': int(get('roq.sma_window_weeks', 52)),
+            'default_lead_time_days': int(get('roq.default_lead_time_days', 100)),
+            'default_review_interval_days': int(get('roq.default_review_interval_days', 30)),
+            'default_service_level': float(get('roq.default_service_level', 0.97)),
+        })
+        pipeline = RoqPipeline(self.env)
+        pipeline.run(self)
