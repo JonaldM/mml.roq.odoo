@@ -1,0 +1,45 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+    <record id="view_roq_raise_po_wizard_form" model="ir.ui.view">
+        <field name="name">roq.raise.po.wizard.form</field>
+        <field name="model">roq.raise.po.wizard</field>
+        <field name="arch" type="xml">
+            <form string="Raise Draft Purchase Order">
+                <sheet>
+                    <group>
+                        <group string="Order Details">
+                            <field name="run_id" readonly="1"/>
+                            <field name="supplier_id" readonly="1"/>
+                        </group>
+                        <group string="Quantity Mode">
+                            <field name="use_containerized" widget="boolean_toggle"/>
+                            <div class="text-muted small" colspan="2">
+                                <strong>ON:</strong> Use ROQ (Containerized) — includes A-tier container padding.<br/>
+                                <strong>OFF:</strong> Use ROQ (Pack Rounded) — demand-driven only, no padding.
+                            </div>
+                        </group>
+                    </group>
+                    <field name="line_ids">
+                        <tree editable="bottom"
+                              decoration-warning="notes != False and notes != ''"
+                              decoration-muted="qty_to_order == 0">
+                            <field name="product_id" readonly="1"/>
+                            <field name="warehouse_id" readonly="1"/>
+                            <field name="qty_containerized" readonly="1" optional="show"/>
+                            <field name="qty_pack_rounded" readonly="1" optional="show"/>
+                            <field name="qty_to_order" string="Qty to Order"/>
+                            <field name="notes" readonly="1" optional="show"/>
+                        </tree>
+                    </field>
+                </sheet>
+                <footer>
+                    <button name="action_raise_pos"
+                            string="Raise Draft PO(s)"
+                            type="object"
+                            class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                </footer>
+            </form>
+        </field>
+    </record>
+</odoo>

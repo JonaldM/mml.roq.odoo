@@ -16,6 +16,7 @@
         'views/roq_forecast_run_views.xml',
         'views/roq_forecast_line_views.xml',
         'views/roq_shipment_group_views.xml',
+        'views/roq_raise_po_wizard_views.xml',
         'views/product_template_views.xml',
         'views/res_partner_views.xml',
         'views/res_config_settings_views.xml',
