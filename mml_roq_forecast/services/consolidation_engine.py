@@ -146,3 +146,70 @@ class ConsolidationEngine:
                 lead_times.append(lt)
         avg_lt = sum(lead_times) / len(lead_times) if lead_times else 100
         return date.today() + timedelta(days=avg_lt)
+
+    def create_proactive_shipment_groups(self, run):
+        """
+        Creates proactive shipment groups from roq.forward.plan records.
+        Groups forward plan lines by FOB port and month.
+        No POs exist yet — shipment_group_line.purchase_order_id = False.
+        """
+        plans = self.env['roq.forward.plan'].search([('run_id', '=', run.id)])
+        if not plans:
+            return self.env['roq.shipment.group']
+
+        # Group plan lines by (fob_port, month)
+        by_port_month = defaultdict(list)
+        for plan in plans:
+            fob = plan.fob_port or plan.supplier_id.fob_port
+            if not fob:
+                continue
+            for line in plan.line_ids:
+                key = (fob, line.month)
+                by_port_month[key].append((plan.supplier_id, line))
+
+        created = self.env['roq.shipment.group']
+        warehouses = self.env['stock.warehouse'].search([('is_active_for_roq', '=', True)])
+
+        for (fob_port, month), supplier_lines in by_port_month.items():
+            # Group by supplier within this month/port
+            by_supplier = defaultdict(list)
+            for supplier, line in supplier_lines:
+                by_supplier[supplier.id].append((supplier, line))
+
+            if not by_supplier:
+                continue
+
+            total_cbm = sum(line.cbm for _, line in supplier_lines)
+            container_type = self._assign_container_type(total_cbm)
+
+            sg = self.env['roq.shipment.group'].create({
+                'origin_port': fob_port,
+                'target_ship_date': month,
+                'container_type': container_type,
+                'total_cbm': total_cbm,
+                'fill_percentage': self._fill_pct(total_cbm, container_type),
+                'state': 'draft',
+                'mode': 'proactive',
+                'run_id': run.id,
+                'destination_warehouse_ids': [(6, 0, warehouses.ids)],
+            })
+
+            for sid, s_lines in by_supplier.items():
+                supplier = s_lines[0][0]
+                supplier_cbm = sum(line.cbm for _, line in s_lines)
+                product_count = len(set(line.product_id.id for _, line in s_lines))
+
+                self.env['roq.shipment.group.line'].create({
+                    'group_id': sg.id,
+                    'supplier_id': supplier.id,
+                    'cbm': supplier_cbm,
+                    'push_pull_days': 0,
+                    'push_pull_reason': 'Proactive — no OOS data yet',
+                    'oos_risk_flag': False,
+                    'original_ship_date': month,
+                    'product_count': product_count,
+                })
+
+            created |= sg
+
+        return created

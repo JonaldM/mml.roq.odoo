@@ -1,4 +1,4 @@
-from odoo import models, fields
+from odoo import models, fields, api
 
 
 class ResPartnerRoqExt(models.Model):
@@ -39,3 +39,53 @@ class ResPartnerRoqExt(models.Model):
     lead_time_on_time_pct = fields.Float(
         string='On-Time Delivery %', digits=(5, 1), readonly=True,
     )
+
+    def _compute_lead_time_stats(self):
+        """
+        Recompute rolling lead time statistics from freight.booking records
+        linked to this supplier's purchase orders.
+        """
+        import statistics
+        for partner in self:
+            if not partner.supplier_rank:
+                partner.avg_lead_time_actual = 0
+                partner.lead_time_std_dev = 0
+                partner.lead_time_on_time_pct = 0
+                continue
+
+            # Find POs for this supplier
+            po_ids = self.env['purchase.order'].search([
+                ('partner_id', '=', partner.id),
+            ]).ids
+
+            if not po_ids:
+                continue
+
+            # Find delivered bookings linked to these POs
+            bookings = self.env['freight.booking'].search([
+                ('po_ids', 'in', po_ids),
+                ('status', '=', 'delivered'),
+                ('actual_lead_time_days', '>', 0),
+            ])
+
+            lead_times = bookings.mapped('actual_lead_time_days')
+            if not lead_times:
+                continue
+
+            avg = sum(lead_times) / len(lead_times)
+            std = statistics.stdev(lead_times) if len(lead_times) > 1 else 0.0
+
+            # On-time = actual lead time within 10% of assumed
+            assumed_lt = partner.supplier_lead_time_days or int(
+                self.env['ir.config_parameter'].sudo()
+                .get_param('roq.default_lead_time_days', 100)
+            )
+            tolerance = assumed_lt * 0.1
+            on_time = sum(1 for lt in lead_times if abs(lt - assumed_lt) <= tolerance)
+            on_time_pct = (on_time / len(lead_times)) * 100
+
+            partner.write({
+                'avg_lead_time_actual': avg,
+                'lead_time_std_dev': std,
+                'lead_time_on_time_pct': on_time_pct,
+            })

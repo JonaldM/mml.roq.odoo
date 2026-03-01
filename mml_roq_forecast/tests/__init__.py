@@ -17,3 +17,7 @@ from . import test_roq_pipeline
 from . import test_push_pull
 from . import test_consolidation_engine
 from . import test_shipment_workflow
+from . import test_forward_plan_generator
+from . import test_proactive_consolidation
+from . import test_reports
+from . import test_lead_time_feedback

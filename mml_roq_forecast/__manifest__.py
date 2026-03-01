@@ -20,6 +20,8 @@
         'views/res_partner_views.xml',
         'views/res_config_settings_views.xml',
         'views/menus.xml',
+        'reports/supplier_order_schedule.xml',
+        'reports/supplier_order_schedule_template.xml',
     ],
     'external_dependencies': {
         'python': ['numpy', 'scipy'],
