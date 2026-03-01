@@ -14,6 +14,7 @@
                 <field name="abc_tier" widget="badge"/>
                 <field name="soh"/>
                 <field name="inventory_position"/>
+                <field name="avg_weekly_demand" optional="show"/>
                 <field name="forecasted_weekly_demand"/>
                 <field name="forecast_method"/>
                 <field name="safety_stock"/>

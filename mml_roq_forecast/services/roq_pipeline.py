@@ -142,6 +142,7 @@ class RoqPipeline:
                 else:
                     fwd = forecast_holt_winters(history)
 
+                avg_demand = sum(history) / len(history) if history else 0.0
                 sigma, is_fallback = demand_std_dev(history, min_n=min_n)
                 ss = calculate_safety_stock(z_score, sigma, lt_weeks)
 
@@ -172,6 +173,7 @@ class RoqPipeline:
                     'soh': soh,
                     'confirmed_po_qty': po_qty,
                     'inventory_position': inv_pos,
+                    'avg_weekly_demand': avg_demand,
                     'forecasted_weekly_demand': fwd,
                     'forecast_method': method,
                     'forecast_confidence': 'low' if is_fallback else confidence,
