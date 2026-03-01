@@ -5,3 +5,8 @@ from . import test_roq_models
 from . import test_shipment_group
 from . import test_forward_plan
 from . import test_settings
+from . import test_demand_history
+from . import test_forecast_methods
+from . import test_safety_stock
+from . import test_abc_classifier
+from . import test_settings_helper
