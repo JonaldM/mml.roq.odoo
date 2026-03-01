@@ -79,7 +79,9 @@ class RoqShipmentGroup(models.Model):
     line_ids = fields.One2many('roq.shipment.group.line', 'group_id', string='Supplier Lines')
     notes = fields.Text(string='Notes')
 
-    # Alias for origin_port used by consolidation grouping logic
+    # fob_port is a stored alias for origin_port (for backwards compatibility / readability).
+    # ALWAYS write to origin_port, not fob_port (related fields are read-only).
+    # Reading either field returns the same value.
     fob_port = fields.Char(
         string='FOB Port (Key)', related='origin_port', store=True,
         help='Alias for origin_port used by consolidation grouping logic.',
@@ -116,7 +118,7 @@ class RoqShipmentGroup(models.Model):
         self.ensure_one()
         if self.state in ('delivered', 'cancelled'):
             raise exceptions.UserError('Cannot cancel a delivered or already cancelled group.')
-        self.state = 'cancelled'
+        self.write({'state': 'cancelled'})
         self.message_post(body='Shipment group cancelled.')
 
 

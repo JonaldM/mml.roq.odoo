@@ -56,6 +56,17 @@ class TestPushPull(TransactionCase):
         result = calculate_max_pull_days(review_interval_days=30)
         self.assertEqual(result, 30)
 
-    def test_pull_capped_at_review_interval(self):
+    def test_pull_no_override_returns_review_interval(self):
+        # No override: review interval is returned unchanged.
         result = calculate_max_pull_days(review_interval_days=30, override=None)
-        self.assertLessEqual(result, 30)
+        self.assertEqual(result, 30)
+
+    def test_pull_override_replaces_review_interval(self):
+        # Override that exceeds the review interval: must be returned as-is (REPLACE semantics).
+        result = calculate_max_pull_days(review_interval_days=30, override=45)
+        self.assertEqual(result, 45)  # override wins, not capped to 30
+
+    def test_pull_override_below_review_interval_still_replaces(self):
+        # Override smaller than review interval: supplier value still replaces default.
+        result = calculate_max_pull_days(review_interval_days=30, override=14)
+        self.assertEqual(result, 14)

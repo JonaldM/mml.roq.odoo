@@ -24,10 +24,21 @@ class SettingsHelper:
         self._param_cache = {}
 
     def _get_param(self, key, default):
-        if key not in self._param_cache:
-            val = self.env['ir.config_parameter'].sudo().get_param(f'roq.{key}')
-            self._param_cache[key] = type(default)(val) if val is not None else default
-        return self._param_cache[key]
+        # NOTE: SettingsHelper does not support boolean parameters via this method
+        # for production use — use direct ir.config_parameter reads with string
+        # comparison for booleans (e.g. get_param(...) == '1').
+        val = self._param_cache.get(key)
+        if val is None:
+            raw = self.env['ir.config_parameter'].sudo().get_param(
+                f'roq.{key}', None
+            )
+            val = raw
+            self._param_cache[key] = raw
+        if val is None:
+            return default
+        if isinstance(default, bool):
+            return val.lower() in ('1', 'true', 'yes')  # safe string→bool conversion
+        return type(default)(val)
 
     def _override_active(self, supplier):
         """Returns True if supplier override is active (not expired)."""

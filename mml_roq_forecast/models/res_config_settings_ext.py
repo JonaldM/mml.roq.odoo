@@ -36,6 +36,22 @@ class ResConfigSettingsRoqExt(models.TransientModel):
         string='Max Pull Days', default=30,
         config_parameter='roq.max_pull_days',
     )
+    roq_max_padding_weeks_cover = fields.Integer(
+        string='Max Padding Weeks Cover',
+        default=26,
+        config_parameter='roq.max_padding_weeks_cover',
+    )
+    roq_default_service_level = fields.Float(
+        string='Default Service Level',
+        default=0.97,
+        digits=(4, 3),
+        config_parameter='roq.default_service_level',
+    )
+    roq_abc_trailing_revenue_weeks = fields.Integer(
+        string='ABCD Trailing Revenue Weeks',
+        default=52,
+        config_parameter='roq.abc_trailing_revenue_weeks',
+    )
     roq_enable_moq_enforcement = fields.Boolean(
         string='Enforce Supplier MOQs',
         config_parameter='roq.enable_moq_enforcement',

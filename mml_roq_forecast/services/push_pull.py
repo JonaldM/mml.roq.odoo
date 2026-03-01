@@ -54,10 +54,16 @@ def calculate_max_push_days(lines):
 def calculate_max_pull_days(review_interval_days=30, override=None):
     """
     Returns maximum days an order can be brought forward.
-    Defaults to review interval. Supplier override replaces (not adds).
+
+    Default: review_interval_days (system setting or supplier-resolved value).
+
+    Override semantics: REPLACE, not cap. A supplier override completely replaces
+    the review interval default — it is not capped to the review interval. If the
+    supplier has a longer pull window (e.g. their factory has long confirmed-order
+    lead times), the override value is returned as-is.
     """
     if override is not None and override > 0:
-        return min(override, review_interval_days)
+        return override
     return review_interval_days
 
 

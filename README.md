@@ -82,11 +82,14 @@ All settings live in **Settings → General Settings → ROQ Forecast**.
 |---|---|---|
 | Default Lead Time (Days) | 100 | Overridden per-supplier |
 | Default Review Interval (Days) | 30 | Overridden per-supplier |
+| Default Service Level | 0.970 | Z-score input for safety stock; overridden per-supplier |
 | Lookback Weeks | 156 | 3 years of sales history |
 | SMA Window (Weeks) | 52 | Falls back to full lookback if < 52 weeks data |
 | Min N Value | 8 | Minimum data points for reliable std dev |
 | ABC Dampener (Weeks) | 4 | Runs before tier reclassification takes effect |
+| ABCD Trailing Revenue Weeks | 52 | Rolling revenue window used for ABCD tier classification |
 | Container LCL Threshold (%) | 50 | Below this utilisation → recommend LCL |
+| Max Padding Weeks Cover | 26 | A-tier container padding ceiling (weeks of cover) |
 | **Enforce Supplier MOQs** | **On** | When off, MOQ flag still shown but quantities unchanged |
 
 Per-supplier overrides (lead time, review interval, service level, FOB port, holiday periods) are set on the supplier record under the **ROQ / Freight** tab.

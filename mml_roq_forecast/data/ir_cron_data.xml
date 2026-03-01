@@ -10,4 +10,15 @@
         <field name="numbercall">-1</field>
         <field name="active">False</field>
     </record>
+
+    <record id="ir_cron_update_supplier_lead_time_stats" model="ir.cron">
+        <field name="name">ROQ: Update Supplier Lead Time Stats</field>
+        <field name="model_id" ref="base.model_res_partner"/>
+        <field name="state">code</field>
+        <field name="code">model.search([('supplier_rank', '>', 0)]).sudo().action_update_lead_time_stats()</field>
+        <field name="interval_number">1</field>
+        <field name="interval_type">weeks</field>
+        <field name="numbercall">-1</field>
+        <field name="active">True</field>
+    </record>
 </odoo>

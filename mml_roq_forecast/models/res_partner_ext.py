@@ -1,4 +1,7 @@
+import logging
 from odoo import models, fields, api
+
+_logger = logging.getLogger(__name__)
 
 
 class ResPartnerRoqExt(models.Model):
@@ -40,12 +43,31 @@ class ResPartnerRoqExt(models.Model):
         string='On-Time Delivery %', digits=(5, 1), readonly=True,
     )
 
-    def _compute_lead_time_stats(self):
+    def action_update_lead_time_stats(self):
         """
         Recompute rolling lead time statistics from freight.booking records
         linked to this supplier's purchase orders.
+
+        Called by:
+          - ir.cron (weekly) — model.search([('supplier_rank', '>', 0)]).sudo().action_update_lead_time_stats()
+          - Manual button on the partner form (optional)
+
+        NOTE: This is NOT an @api.depends compute method. It is a manual updater
+        that must be triggered explicitly (cron or button). Stats fields are stored
+        and readonly — they are only written by this method.
         """
         import statistics
+
+        # TODO: Confirm field names with mml_freight team before go-live.
+        # Interface contract uses transit_days_actual; model mapping shows actual_lead_time_days.
+        # Defensive check added below — if field is missing, method returns early with a warning.
+        if not hasattr(self.env['freight.booking'], 'transit_days_actual'):
+            _logger.warning(
+                "ROQ: freight.booking.transit_days_actual not found — "
+                "lead time stats not updated. Check mml_freight field names."
+            )
+            return
+
         for partner in self:
             if not partner.supplier_rank:
                 partner.avg_lead_time_actual = 0
@@ -62,7 +84,8 @@ class ResPartnerRoqExt(models.Model):
                 continue
 
             # Find delivered bookings linked to these POs
-            bookings = self.env['freight.booking'].search([
+            # sudo() ensures this runs correctly from cron context (no user session)
+            bookings = self.env['freight.booking'].sudo().search([
                 ('po_ids', 'in', po_ids),
                 ('state', '=', 'delivered'),
                 ('transit_days_actual', '>', 0),

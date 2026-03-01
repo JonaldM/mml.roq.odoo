@@ -156,9 +156,24 @@ class ForwardPlanGenerator:
 
     def _adjust_for_holidays(self, order_date, holiday_periods):
         """
-        If order_date falls within a holiday window, push it to the day after.
+        If order_date falls within a holiday window, push it to the day after the
+        window ends. Iterates until the adjusted date is clear of all holiday periods,
+        handling adjacent or overlapping windows correctly.
+
+        Uses an iterative (not recursive) approach to avoid stack depth issues when
+        many holiday periods are configured.
         """
-        for period in holiday_periods:
-            if period['start'] <= order_date <= period['end']:
-                return period['end'] + timedelta(days=1)
-        return order_date
+        if not holiday_periods:
+            return order_date
+        adjusted = order_date
+        max_iterations = len(holiday_periods) + 1  # safety cap
+        for _ in range(max_iterations):
+            hit = False
+            for period in holiday_periods:
+                if period['start'] <= adjusted <= period['end']:
+                    adjusted = period['end'] + timedelta(days=1)
+                    hit = True
+                    break
+            if not hit:
+                return adjusted
+        return adjusted  # fallback after max iterations

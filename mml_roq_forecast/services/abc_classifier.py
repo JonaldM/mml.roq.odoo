@@ -89,6 +89,9 @@ class AbcClassifier:
 
         new_weeks = weeks_in_pending + 1
 
+        # Reclassification fires on the 4th consecutive run in new tier.
+        # Run sequence: pending=0→1 (held), 1→2 (held), 2→3 (held), 3→4 >= dampener_weeks (fires).
+        # Per spec: "Tier must be stable for 4 consecutive runs before reclassification takes effect."
         if new_weeks >= dampener_weeks:
             return {
                 'applied_tier': calculated_tier,
@@ -129,9 +132,17 @@ class AbcClassifier:
             ('type', 'in', ['product', 'consu']),
         ])
 
+        trailing_weeks = int(
+            self.env['ir.config_parameter'].sudo()
+            .get_param('roq.abc_trailing_revenue_weeks', 52)
+        )
+        # TODO: snapshot abc_trailing_revenue_weeks onto the run record so audits
+        # can reproduce the exact revenue window used at classification time.
+        # Add a field roq.forecast.run.abc_trailing_revenue_weeks and write it here.
+
         revenue_map = {}
         for pt in products:
-            revenue_map[pt.id] = dh.get_trailing_revenue(pt, weeks=52)
+            revenue_map[pt.id] = dh.get_trailing_revenue(pt, weeks=trailing_weeks)
 
         overrides = {
             pt.id: pt.abc_tier_override
@@ -145,6 +156,10 @@ class AbcClassifier:
             overrides=overrides,
         )
 
+        # NOTE: total_rev is also computed inside classify_from_revenues().
+        # Both use the same revenue_map input, so results are numerically identical.
+        # If you ever pass a filtered map to classify_from_revenues, ensure
+        # the total_rev here is also updated to prevent cumulative_pct drift.
         total_rev = sum(revenue_map.values())
         sorted_by_rev = sorted(revenue_map.items(), key=lambda x: x[1], reverse=True)
         cumulative_map = {}
@@ -164,7 +179,11 @@ class AbcClassifier:
             )
             applied = dampener_result['applied_tier']
 
-            pt.write({
+            # sudo() is required here: classify_all_products may be called from
+            # action_run() by an ops-manager user who lacks write access to
+            # product.template. These are module-owned computed output fields,
+            # so sudo() is appropriate.
+            pt.sudo().write({
                 'abc_tier': applied,
                 'abc_tier_pending': dampener_result.get('pending_tier'),
                 'abc_weeks_in_pending': dampener_result['weeks_in_pending'],
@@ -183,4 +202,6 @@ class AbcClassifier:
                 'override_active': overrides.get(pt.id, ''),
             })
 
-        self.env['roq.abc.history'].create(history_vals)
+        # sudo() is required: roq.abc.history create may fail for ops-manager
+        # users who lack create rights on the history model directly.
+        self.env['roq.abc.history'].sudo().create(history_vals)

@@ -60,8 +60,8 @@ class RoqPipeline:
             # Step 6-7: Aggregate by supplier + container fit
             line_vals = self._apply_container_fitting(line_vals)
 
-            # Write results
-            self.env['roq.forecast.line'].create(line_vals)
+            # Write results (sudo: pipeline creates its own computed output records)
+            self.env['roq.forecast.line'].sudo().create(line_vals)
 
             # Update run summary
             skus_with_roq = sum(1 for v in line_vals if v.get('roq_containerized', 0) > 0)
@@ -98,10 +98,6 @@ class RoqPipeline:
         lookback = self.settings.get_lookback_weeks()
         sma_window = self.settings.get_sma_window_weeks()
         min_n = self.settings.get_min_n_value()
-        lcl_threshold = int(
-            self.env['ir.config_parameter'].sudo()
-            .get_param('roq.container_lcl_threshold_pct', 50)
-        )
 
         line_vals = []
 
@@ -192,7 +188,7 @@ class RoqPipeline:
                     'pack_size': pt.pack_size or 1,
                     'projected_inventory_at_delivery': proj_inv,
                     'weeks_of_cover_at_delivery': weeks_cover,
-                    'container_type': 'unassigned' if not pt.cbm_per_unit else False,
+                    'container_type': 'unassigned',
                     'notes': notes,
                     # MOQ — snapshot at run time; enforcement applied in step 7
                     'supplier_moq': supplier_moq,
@@ -248,6 +244,11 @@ class RoqPipeline:
                     v['cbm_total'] = v['roq_pack_rounded'] * v.get('cbm_per_unit', 0.0)
 
             # Step 8: Container Fitting — uses MOQ-adjusted quantities
+            # active is a list of (original_line_vals_index, val_dict) in stable order.
+            # ContainerFitter.fit() preserves input order in line_results, so we match
+            # results back by position rather than by product_id — this avoids the
+            # multi-warehouse key collision where the same product_id appears in multiple
+            # warehouse lines and a dict keyed on product_id alone would drop all but the last.
             fit_input = [{
                 'product_id': v['product_id'],
                 'cbm': v['cbm_total'],
@@ -260,19 +261,16 @@ class RoqPipeline:
 
             fit_result = fitter.fit(fit_input)
 
-            # Map results back by product_id (first match per product in this supplier group)
-            result_by_pid = {r['product_id']: r for r in fit_result['line_results']}
-
-            for idx, val in active:
-                pid = val['product_id']
-                if pid in result_by_pid:
-                    r = result_by_pid[pid]
-                    line_vals[idx].update({
-                        'roq_containerized': r['roq_containerized'],
-                        'padding_units': r['padding_units'],
-                        'container_type': fit_result['container_type'],
-                        'container_fill_pct': fit_result['fill_pct'],
-                    })
+            # Match results back by position (fit_result['line_results'] is in the same
+            # order as fit_input, which is the same order as active).
+            for pos, (idx, _val) in enumerate(active):
+                r = fit_result['line_results'][pos]
+                line_vals[idx].update({
+                    'roq_containerized': r['roq_containerized'],
+                    'padding_units': r['padding_units'],
+                    'container_type': fit_result['container_type'],
+                    'container_fill_pct': fit_result['fill_pct'],
+                })
 
         # Remove internal carry fields before writing
         for val in line_vals:
@@ -282,14 +280,15 @@ class RoqPipeline:
         return line_vals
 
     def _dormant_line(self, run, product, warehouse, product_tmpl):
+        soh = self.inv.get_soh(product, warehouse)
         return {
             'run_id': run.id,
             'product_id': product.id,
             'warehouse_id': warehouse.id,
             'abc_tier': 'D',
-            'soh': self.inv.get_soh(product, warehouse),
+            'soh': soh,
             'confirmed_po_qty': 0.0,
-            'inventory_position': self.inv.get_soh(product, warehouse),
+            'inventory_position': soh,
             'forecasted_weekly_demand': 0.0,
             'forecast_method': 'sma',
             'forecast_confidence': 'low',

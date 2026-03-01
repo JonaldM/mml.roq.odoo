@@ -36,21 +36,25 @@ class TestAbcClassifier(TransactionCase):
         result = self._classify_with_revenues(assignments, overrides=overrides)
         self.assertEqual(result['P1'], 'A')
 
-    def test_dampener_holds_tier_for_4_runs(self):
+    def test_dampener_holds_tier_for_3_runs_fires_on_4th(self):
+        # weeks_in_pending=2 means this is the 3rd consecutive run in the new tier.
+        # new_weeks = 3, which is < dampener_weeks (4), so tier is still held.
+        result = self.classifier.apply_dampener(
+            current_tier='C',
+            calculated_tier='B',
+            weeks_in_pending=2,
+            dampener_weeks=4,
+        )
+        self.assertEqual(result['applied_tier'], 'C')
+        self.assertEqual(result['weeks_in_pending'], 3)
+
+    def test_dampener_applies_on_4th_run(self):
+        # weeks_in_pending=3 means this is the 4th consecutive run in the new tier.
+        # new_weeks = 4, which is >= dampener_weeks (4), so reclassification fires.
         result = self.classifier.apply_dampener(
             current_tier='C',
             calculated_tier='B',
             weeks_in_pending=3,
-            dampener_weeks=4,
-        )
-        self.assertEqual(result['applied_tier'], 'C')
-        self.assertEqual(result['weeks_in_pending'], 4)
-
-    def test_dampener_applies_on_4th_run(self):
-        result = self.classifier.apply_dampener(
-            current_tier='C',
-            calculated_tier='B',
-            weeks_in_pending=4,
             dampener_weeks=4,
         )
         self.assertEqual(result['applied_tier'], 'B')

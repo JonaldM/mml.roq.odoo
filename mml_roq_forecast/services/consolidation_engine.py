@@ -15,6 +15,7 @@ Proactive mode (Phase 3/4 — stub here, implemented in Sprint 4):
 from collections import defaultdict
 from datetime import date, timedelta
 from .push_pull import calculate_max_push_days, calculate_max_pull_days, has_oos_risk
+from .settings_helper import SettingsHelper
 
 
 class ConsolidationEngine:
@@ -57,6 +58,7 @@ class ConsolidationEngine:
         """
         grouped = self.group_by_fob_port(run)
         warehouses = self.env['stock.warehouse'].search([('is_active_for_roq', '=', True)])
+        sh = SettingsHelper(self.env)
 
         created = self.env['roq.shipment.group']
 
@@ -94,17 +96,18 @@ class ConsolidationEngine:
                     'projected_inventory_at_delivery': l.projected_inventory_at_delivery,
                 } for l in lines])
 
-                # Push/pull calculation
+                # Push/pull calculation.
+                # Use SettingsHelper so supplier-level review interval overrides
+                # (REPLACE semantics) are honoured rather than always reading the
+                # raw global ir.config_parameter value.
                 line_data = [{
                     'projected_inventory_at_delivery': l.projected_inventory_at_delivery,
                     'weeks_of_cover_at_delivery': l.weeks_of_cover_at_delivery,
                 } for l in lines]
                 max_push = calculate_max_push_days(line_data)
+                review_interval = sh.get_review_interval_days(supplier)
                 max_pull = calculate_max_pull_days(
-                    review_interval_days=int(
-                        self.env['ir.config_parameter'].sudo()
-                        .get_param('roq.max_pull_days', 30)
-                    ),
+                    review_interval_days=review_interval,
                 )
 
                 self.env['roq.shipment.group.line'].create({
