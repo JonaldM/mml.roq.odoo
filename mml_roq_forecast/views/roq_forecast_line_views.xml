@@ -1,5 +1,36 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
+    <record id="view_roq_forecast_line_tree" model="ir.ui.view">
+        <field name="name">roq.forecast.line.tree</field>
+        <field name="model">roq.forecast.line</field>
+        <field name="arch" type="xml">
+            <tree decoration-danger="notes != False and 'REAL OOS' in notes"
+                  decoration-warning="notes != False and 'Safety Stock' in notes"
+                  decoration-muted="abc_tier == 'D'">
+                <field name="run_id"/>
+                <field name="supplier_id"/>
+                <field name="product_id"/>
+                <field name="warehouse_id"/>
+                <field name="abc_tier" widget="badge"/>
+                <field name="soh"/>
+                <field name="inventory_position"/>
+                <field name="forecasted_weekly_demand"/>
+                <field name="forecast_method"/>
+                <field name="safety_stock"/>
+                <field name="out_level"/>
+                <field name="order_up_to"/>
+                <field name="roq_raw"/>
+                <field name="roq_pack_rounded"/>
+                <field name="roq_containerized"/>
+                <field name="container_type"/>
+                <field name="container_fill_pct"/>
+                <field name="projected_inventory_at_delivery"/>
+                <field name="weeks_of_cover_at_delivery"/>
+                <field name="notes"/>
+            </tree>
+        </field>
+    </record>
+
     <record id="action_roq_forecast_line" model="ir.actions.act_window">
         <field name="name">ROQ Lines</field>
         <field name="res_model">roq.forecast.line</field>
