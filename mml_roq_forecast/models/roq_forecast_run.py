@@ -33,6 +33,11 @@ class RoqForecastRun(models.Model):
     total_skus_reorder = fields.Integer(string='SKUs with ROQ > 0', readonly=True)
     total_skus_oos_risk = fields.Integer(string='SKUs at OOS Risk', readonly=True)
 
+    enable_moq_enforcement = fields.Boolean(
+        string='MOQ Enforcement Active', default=True,
+        help='Parameter snapshot: was MOQ enforcement active for this run.',
+    )
+
     line_ids = fields.One2many('roq.forecast.line', 'run_id', string='Result Lines')
     notes = fields.Text(string='Run Log / Errors')
 

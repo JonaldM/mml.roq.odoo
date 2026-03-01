@@ -36,3 +36,11 @@ class ResConfigSettingsRoqExt(models.TransientModel):
         string='Max Pull Days', default=30,
         config_parameter='roq.max_pull_days',
     )
+    roq_enable_moq_enforcement = fields.Boolean(
+        string='Enforce Supplier MOQs',
+        config_parameter='roq.enable_moq_enforcement',
+        default=True,
+        help='When enabled, orders below supplier MOQ are raised to the minimum and '
+             'extra units allocated to the warehouse with lowest cover. '
+             'When disabled, the MOQ flag is still shown but quantities are unchanged.',
+    )
