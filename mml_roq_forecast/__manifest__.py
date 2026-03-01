@@ -1,0 +1,30 @@
+{
+    'name': 'MML ROQ Forecast & Procurement Planning',
+    'version': '19.0.1.0.0',
+    'summary': 'Demand forecasting, ROQ calculation, container consolidation, and 12-month procurement planning',
+    'author': 'MML Consumer Products',
+    'category': 'Inventory/Purchase',
+    'depends': [
+        'base', 'sale', 'purchase', 'stock',
+        'stock_landed_costs',
+        'mml_freight',
+    ],
+    'data': [
+        'security/ir.model.access.csv',
+        'data/ir_sequence_data.xml',
+        'data/ir_cron_data.xml',
+        'views/roq_forecast_run_views.xml',
+        'views/roq_forecast_line_views.xml',
+        'views/roq_shipment_group_views.xml',
+        'views/product_template_views.xml',
+        'views/res_partner_views.xml',
+        'views/res_config_settings_views.xml',
+        'views/menus.xml',
+    ],
+    'external_dependencies': {
+        'python': ['numpy', 'scipy'],
+    },
+    'installable': True,
+    'auto_install': False,
+    'license': 'LGPL-3',
+}
