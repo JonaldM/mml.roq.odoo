@@ -12,6 +12,7 @@
     'data': [
         'security/ir.model.access.csv',
         'data/ir_sequence_data.xml',
+        'data/roq_port_data.xml',
         'data/ir_cron_data.xml',
         'views/roq_forecast_run_views.xml',
         'views/roq_forecast_line_views.xml',

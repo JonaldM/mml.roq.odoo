@@ -1,6 +1,13 @@
 """
 FOB Port Consolidation Engine — Reactive Mode.
 
+Incoterm filtering:
+  Suppliers with seller-freight incoterms (CIF, CFR, CIP, CPT, DAP, DPU, DDP)
+  are excluded from port consolidation — the seller arranges the main freight leg
+  so MML has nothing to consolidate.
+  Suppliers with no incoterm set are assumed FOB (legacy / safe default).
+  FOB, FCA, FAS, EXW = MML arranges main freight → included.
+
 After a ROQ run completes, groups supplier orders by FOB port.
 Creates roq.shipment.group records with push/pull analysis.
 
@@ -18,6 +25,11 @@ from .push_pull import calculate_max_push_days, calculate_max_pull_days, has_oos
 from .settings_helper import SettingsHelper
 
 
+# Incoterms where the seller arranges the main freight leg — exclude from consolidation.
+# Suppliers with no incoterm set are assumed FOB (safe default for legacy data).
+_SELLER_FREIGHT_INCOTERMS = frozenset({'CIF', 'CFR', 'CIP', 'CPT', 'DAP', 'DPU', 'DDP'})
+
+
 class ConsolidationEngine:
 
     def __init__(self, env):
@@ -27,13 +39,23 @@ class ConsolidationEngine:
         """
         Returns dict: {fob_port: [{supplier: record, lines: [...]}]}
         Groups lines from a completed ROQ run by FOB port.
-        Only includes lines with roq_containerized > 0 and a supplier with fob_port set.
+
+        Includes lines where:
+          - roq_containerized > 0
+          - supplier has fob_port set (i.e. fob_port_id is set)
+          - supplier incoterm is buyer-freight (FOB/FCA/EXW/FAS) or not set (assumed FOB)
         """
         lines = self.env['roq.forecast.line'].search([
             ('run_id', '=', run.id),
             ('roq_containerized', '>', 0),
             ('supplier_id.fob_port', '!=', False),
         ])
+
+        # Filter out sellers who arrange their own main freight leg
+        lines = lines.filtered(
+            lambda l: not l.supplier_id.purchase_incoterm_id
+            or l.supplier_id.purchase_incoterm_id.code not in _SELLER_FREIGHT_INCOTERMS
+        )
 
         by_port = defaultdict(lambda: defaultdict(list))
         for line in lines:
@@ -74,8 +96,17 @@ class ConsolidationEngine:
             # Calculate planned ship date (today + average lead time for this port)
             planned_ship_date = self._estimate_ship_date(supplier_groups)
 
+            # Use destination port from the first supplier in this group that has one set.
+            dest_port_code = next(
+                (sg['supplier'].destination_port_id.code
+                 for sg in supplier_groups
+                 if sg['supplier'].destination_port_id),
+                None,
+            )
+
             sg = self.env['roq.shipment.group'].create({
                 'origin_port': fob_port,
+                'destination_port': dest_port_code or '',
                 'target_ship_date': planned_ship_date,
                 'container_type': container_type,
                 'total_cbm': total_cbm,
@@ -185,8 +216,17 @@ class ConsolidationEngine:
             total_cbm = sum(line.cbm for _, line in supplier_lines)
             container_type = self._assign_container_type(total_cbm)
 
+            # Destination port from the first supplier in this group that has one set
+            dest_port_code = ''
+            for s_lines in by_supplier.values():
+                supplier_rec = s_lines[0][0]
+                if supplier_rec.destination_port_id:
+                    dest_port_code = supplier_rec.destination_port_id.code
+                    break
+
             sg = self.env['roq.shipment.group'].create({
                 'origin_port': fob_port,
+                'destination_port': dest_port_code,
                 'target_ship_date': month,
                 'container_type': container_type,
                 'total_cbm': total_cbm,

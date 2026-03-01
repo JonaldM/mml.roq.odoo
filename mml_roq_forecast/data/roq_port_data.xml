@@ -1,0 +1,128 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!--
+        Freight port seed data — UN/LOCODE format.
+        noupdate="1" means these records are only created on first install;
+        manual edits in Odoo are preserved on module upgrade.
+        Add new ports via the Configuration → Freight Ports menu.
+    -->
+
+    <!-- ===================== CHINA — Origin ports ===================== -->
+    <record id="port_cnsha" model="roq.port">
+        <field name="code">CNSHA</field>
+        <field name="name">Shanghai</field>
+        <field name="country_id" ref="base.cn"/>
+    </record>
+
+    <record id="port_cnngb" model="roq.port">
+        <field name="code">CNNGB</field>
+        <field name="name">Ningbo-Zhoushan</field>
+        <field name="country_id" ref="base.cn"/>
+    </record>
+
+    <record id="port_cnszx" model="roq.port">
+        <field name="code">CNSZX</field>
+        <field name="name">Shenzhen (Yantian / Shekou)</field>
+        <field name="country_id" ref="base.cn"/>
+    </record>
+
+    <record id="port_cnnsa" model="roq.port">
+        <field name="code">CNNSA</field>
+        <field name="name">Nansha (Guangzhou)</field>
+        <field name="country_id" ref="base.cn"/>
+    </record>
+
+    <record id="port_cnqin" model="roq.port">
+        <field name="code">CNQIN</field>
+        <field name="name">Qingdao</field>
+        <field name="country_id" ref="base.cn"/>
+    </record>
+
+    <record id="port_cntxg" model="roq.port">
+        <field name="code">CNTXG</field>
+        <field name="name">Tianjin Xingang</field>
+        <field name="country_id" ref="base.cn"/>
+    </record>
+
+    <record id="port_cnxmn" model="roq.port">
+        <field name="code">CNXMN</field>
+        <field name="name">Xiamen</field>
+        <field name="country_id" ref="base.cn"/>
+    </record>
+
+    <!-- ===================== VIETNAM — Origin ports ===================== -->
+    <record id="port_vnhph" model="roq.port">
+        <field name="code">VNHPH</field>
+        <field name="name">Hai Phong</field>
+        <field name="country_id" ref="base.vn"/>
+    </record>
+
+    <record id="port_vnsgn" model="roq.port">
+        <field name="code">VNSGN</field>
+        <field name="name">Ho Chi Minh City (Cat Lai)</field>
+        <field name="country_id" ref="base.vn"/>
+    </record>
+
+    <!-- ===================== INDIA — Origin ports ===================== -->
+    <record id="port_innsa" model="roq.port">
+        <field name="code">INNSA</field>
+        <field name="name">Nhava Sheva (Mumbai)</field>
+        <field name="country_id" ref="base.in"/>
+    </record>
+
+    <record id="port_inchp" model="roq.port">
+        <field name="code">INCHP</field>
+        <field name="name">Chennai</field>
+        <field name="country_id" ref="base.in"/>
+    </record>
+
+    <!-- ===================== AUSTRALIA — Transit / destination ===================== -->
+    <record id="port_ausyd" model="roq.port">
+        <field name="code">AUSYD</field>
+        <field name="name">Sydney</field>
+        <field name="country_id" ref="base.au"/>
+    </record>
+
+    <record id="port_aumel" model="roq.port">
+        <field name="code">AUMEL</field>
+        <field name="name">Melbourne</field>
+        <field name="country_id" ref="base.au"/>
+    </record>
+
+    <record id="port_aubne" model="roq.port">
+        <field name="code">AUBNE</field>
+        <field name="name">Brisbane</field>
+        <field name="country_id" ref="base.au"/>
+    </record>
+
+    <!-- ===================== NEW ZEALAND — Destination ports ===================== -->
+    <record id="port_nzakl" model="roq.port">
+        <field name="code">NZAKL</field>
+        <field name="name">Auckland (Ports of Auckland)</field>
+        <field name="country_id" ref="base.nz"/>
+    </record>
+
+    <record id="port_nztrg" model="roq.port">
+        <field name="code">NZTRG</field>
+        <field name="name">Tauranga (Port of Tauranga)</field>
+        <field name="country_id" ref="base.nz"/>
+    </record>
+
+    <record id="port_nznsn" model="roq.port">
+        <field name="code">NZNSN</field>
+        <field name="name">Nelson</field>
+        <field name="country_id" ref="base.nz"/>
+    </record>
+
+    <record id="port_nzchc" model="roq.port">
+        <field name="code">NZCHC</field>
+        <field name="name">Christchurch (Lyttelton)</field>
+        <field name="country_id" ref="base.nz"/>
+    </record>
+
+    <record id="port_nzdud" model="roq.port">
+        <field name="code">NZDUD</field>
+        <field name="name">Dunedin (Port Otago)</field>
+        <field name="country_id" ref="base.nz"/>
+    </record>
+</odoo>

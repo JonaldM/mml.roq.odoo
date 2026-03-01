@@ -7,10 +7,30 @@ _logger = logging.getLogger(__name__)
 class ResPartnerRoqExt(models.Model):
     _inherit = 'res.partner'
 
-    fob_port = fields.Char(
-        string='FOB Port',
-        help='Port of origin for freight consolidation grouping (e.g. Shenzhen, CN).',
+    # --- Port & trade terms ---
+    fob_port_id = fields.Many2one(
+        'roq.port', string='FOB Port (Origin)',
+        help='Port of origin for freight consolidation. Select from the curated port list.',
     )
+    fob_port = fields.Char(
+        string='FOB Port Code', related='fob_port_id.code',
+        store=True, readonly=True,
+        help='UN/LOCODE of the origin port. Derived from FOB Port selection. '
+             'Used as the consolidation grouping key — do not set manually.',
+    )
+    destination_port_id = fields.Many2one(
+        'roq.port', string='Destination Port',
+        help='Default NZ (or other) port of discharge for this supplier\'s shipments. '
+             'Flows into shipment group destination port.',
+    )
+    purchase_incoterm_id = fields.Many2one(
+        'account.incoterms', string='Default Incoterm',
+        help='Trade terms for orders from this supplier. '
+             'FOB/FCA/EXW = MML arranges main freight → included in consolidation. '
+             'CIF/DDP/DAP/etc. = supplier arranges freight → excluded from consolidation.',
+    )
+
+    # --- ROQ parameter overrides ---
     supplier_lead_time_days = fields.Integer(
         string='Lead Time Override (Days)',
         help='Overrides system default. Leave blank to use system default.',
@@ -32,6 +52,8 @@ class ResPartnerRoqExt(models.Model):
         string='Holiday Periods (JSON)',
         help='JSON array of {start, end, reason} objects. e.g. CNY shutdown periods.',
     )
+
+    # --- Lead time statistics (written by cron / action_update_lead_time_stats) ---
     avg_lead_time_actual = fields.Float(
         string='Avg Actual Lead Time (Days)', digits=(6, 1), readonly=True,
         help='Rolling average from freight.booking records.',
@@ -75,7 +97,6 @@ class ResPartnerRoqExt(models.Model):
                 partner.lead_time_on_time_pct = 0
                 continue
 
-            # Find POs for this supplier
             po_ids = self.env['purchase.order'].search([
                 ('partner_id', '=', partner.id),
             ]).ids
@@ -83,8 +104,6 @@ class ResPartnerRoqExt(models.Model):
             if not po_ids:
                 continue
 
-            # Find delivered bookings linked to these POs
-            # sudo() ensures this runs correctly from cron context (no user session)
             bookings = self.env['freight.booking'].sudo().search([
                 ('po_ids', 'in', po_ids),
                 ('state', '=', 'delivered'),
@@ -98,7 +117,6 @@ class ResPartnerRoqExt(models.Model):
             avg = sum(lead_times) / len(lead_times)
             std = statistics.stdev(lead_times) if len(lead_times) > 1 else 0.0
 
-            # On-time = actual lead time within 10% of assumed
             assumed_lt = partner.supplier_lead_time_days or int(
                 self.env['ir.config_parameter'].sudo()
                 .get_param('roq.default_lead_time_days', 100)

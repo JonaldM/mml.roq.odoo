@@ -1,3 +1,4 @@
+from . import roq_port
 from . import product_template_ext
 from . import res_partner_ext
 from . import stock_warehouse_ext

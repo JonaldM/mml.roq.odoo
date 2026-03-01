@@ -31,4 +31,10 @@
               name="Configuration"
               parent="menu_roq_root"
               sequence="90"/>
+
+    <menuitem id="menu_roq_freight_ports"
+              name="Freight Ports"
+              parent="menu_roq_config"
+              action="action_roq_port"
+              sequence="10"/>
 </odoo>
