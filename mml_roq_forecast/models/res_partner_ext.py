@@ -1,4 +1,5 @@
 import logging
+import statistics
 from odoo import models, fields, api
 from odoo.exceptions import ValidationError
 
@@ -99,8 +100,6 @@ class ResPartnerRoqExt(models.Model):
         when the freight service is unavailable so that previously-written stats are
         preserved until the service comes back online.
         """
-        import statistics
-
         svc = self.env['mml.registry'].service('freight')
 
         for partner in self:
@@ -118,8 +117,8 @@ class ResPartnerRoqExt(models.Model):
                 continue
 
             # Retrieve lead time data via service locator.
-            # Returns a list of dicts [{booking_id, transit_days_actual}, ...]
-            # or an empty list when mml_freight is not installed.
+            # Returns a flat list of float transit-day values, e.g. [14.0, 18.0, 12.5],
+            # or None when mml_freight is not installed (NullService returns None).
             booking_lead_times = svc.get_delivered_booking_lead_times(po_ids)
             if booking_lead_times is None:
                 _logger.warning(
