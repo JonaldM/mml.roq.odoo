@@ -83,7 +83,7 @@ class ResPartnerRoqExt(models.Model):
 
     def action_update_lead_time_stats(self):
         """
-        Recompute rolling lead time statistics from freight.booking records
+        Recompute rolling lead time statistics from freight booking records
         linked to this supplier's purchase orders.
 
         Called by:
@@ -93,18 +93,15 @@ class ResPartnerRoqExt(models.Model):
         NOTE: This is NOT an @api.depends compute method. It is a manual updater
         that must be triggered explicitly (cron or button). Stats fields are stored
         and readonly — they are only written by this method.
+
+        Uses the service locator to retrieve freight booking lead times — returns None
+        per booking if mml_freight is not installed. Partners are skipped (not zeroed)
+        when the freight service is unavailable so that previously-written stats are
+        preserved until the service comes back online.
         """
         import statistics
 
-        # TODO: Confirm field names with mml_freight team before go-live.
-        # Interface contract uses transit_days_actual; model mapping shows actual_lead_time_days.
-        # Defensive check added below — if field is missing, method returns early with a warning.
-        if not hasattr(self.env['freight.booking'], 'transit_days_actual'):
-            _logger.warning(
-                "ROQ: freight.booking.transit_days_actual not found — "
-                "lead time stats not updated. Check mml_freight field names."
-            )
-            return
+        svc = self.env['mml.registry'].service('freight')
 
         for partner in self:
             if not partner.supplier_rank:
@@ -120,13 +117,18 @@ class ResPartnerRoqExt(models.Model):
             if not po_ids:
                 continue
 
-            bookings = self.env['freight.booking'].sudo().search([
-                ('po_ids', 'in', po_ids),
-                ('state', '=', 'delivered'),
-                ('transit_days_actual', '>', 0),
-            ])
+            # Retrieve lead time data via service locator.
+            # Returns a list of dicts [{booking_id, transit_days_actual}, ...]
+            # or an empty list when mml_freight is not installed.
+            booking_lead_times = svc.get_delivered_booking_lead_times(po_ids)
+            if booking_lead_times is None:
+                _logger.warning(
+                    "ROQ: freight service unavailable — lead time stats not updated for %s.",
+                    partner.name,
+                )
+                continue
 
-            lead_times = bookings.mapped('transit_days_actual')
+            lead_times = [r for r in booking_lead_times if r and r > 0]
             if not lead_times:
                 continue
 

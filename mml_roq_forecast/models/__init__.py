@@ -3,7 +3,6 @@ from . import product_template_ext
 from . import res_partner_ext
 from . import stock_warehouse_ext
 from . import purchase_order_ext
-from . import freight_tender_ext
 from . import roq_forecast_run
 from . import roq_forecast_line
 from . import roq_abc_history

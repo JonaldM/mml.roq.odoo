@@ -13,6 +13,3 @@ class TestRoqInstall(TransactionCase):
 
     def test_res_partner_has_fob_port(self):
         self.assertIn('fob_port', self.env['res.partner']._fields)
-
-    def test_freight_tender_has_shipment_group_id(self):
-        self.assertIn('shipment_group_id', self.env['freight.tender']._fields)

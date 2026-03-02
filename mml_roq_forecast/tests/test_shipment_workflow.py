@@ -11,16 +11,20 @@ class TestShipmentWorkflow(TransactionCase):
             'container_type': '40GP',
         })
 
-    def test_confirm_creates_freight_tender(self):
-        """Per contract §3: action_confirm creates freight.tender and sets state=confirmed."""
+    def test_confirm_transitions_to_confirmed_state(self):
+        """
+        action_confirm must move state to 'confirmed' regardless of whether
+        mml_freight is installed.  The service locator returns NullService when
+        freight is absent, so no tender is created — but state still advances.
+        """
         self.sg.action_confirm()
         self.assertEqual(self.sg.state, 'confirmed')
-        self.assertTrue(self.sg.freight_tender_id)
 
-    def test_freight_tender_has_correct_ports(self):
+    def test_confirm_posts_chatter_message(self):
+        """action_confirm must post a chatter message (audit trail)."""
         self.sg.action_confirm()
-        tender = self.sg.freight_tender_id
-        self.assertEqual(tender.origin_port, 'Shenzhen, CN')
+        messages = self.sg.message_ids.filtered(lambda m: m.message_type == 'comment')
+        self.assertTrue(messages, 'Expected at least one chatter comment after confirm.')
 
     def test_cancel_from_draft_works(self):
         self.sg.action_cancel()

@@ -48,11 +48,6 @@ class RoqShipmentGroup(models.Model):
         'purchase.order', string='Purchase Orders',
         help='POs consolidated in this shipment. Passed to freight.tender on confirm.',
     )
-    freight_tender_id = fields.Many2one(
-        'freight.tender', string='Freight Tender',
-        ondelete='set null', readonly=True,
-        help='Created by ROQ on action_confirm. Managed by mml_freight thereafter.',
-    )
 
     # Delivery feedback — written by freight module (Option A per contract §4)
     actual_delivery_date = fields.Date(
@@ -89,16 +84,22 @@ class RoqShipmentGroup(models.Model):
 
     def action_confirm(self):
         """
-        Confirm this shipment group and create a freight.tender.
+        Confirm this shipment group and request a freight tender via the service locator.
         Per interface contract §3: ROQ creates the tender; freight manages it thereafter.
+
+        If mml_freight is not installed, the service locator returns a NullService and
+        tender_id will be None — the group is still confirmed and the chatter records this.
+        The bridge module (mml_roq_freight) installs freight_tender_id on this model and
+        wires the real call when both modules are present.
         """
         self.ensure_one()
         if self.state != 'draft':
             raise exceptions.UserError('Only draft shipment groups can be confirmed.')
 
-        tender = self.env['freight.tender'].create({
+        svc = self.env['mml.registry'].service('freight')
+        tender_id = svc.create_tender({
             'shipment_group_ref': self.name,        # lightweight ref (always present)
-            'shipment_group_id': self.id,           # relational link (our extension field)
+            'shipment_group_id': self.id,           # relational link (added by bridge module)
             'origin_port': self.origin_port or '',
             'dest_port': self.destination_port or '',
             'requested_pickup_date': self.target_ship_date,
@@ -106,13 +107,15 @@ class RoqShipmentGroup(models.Model):
             'po_ids': [(4, po.id) for po in self.po_ids],
         })
 
-        self.write({
-            'freight_tender_id': tender.id,
-            'state': 'confirmed',
-        })
-        self.message_post(
-            body=f'Shipment group confirmed. Freight tender created: {tender.name}',
-        )
+        self.write({'state': 'confirmed'})
+        if tender_id:
+            self.message_post(
+                body=f'Shipment group confirmed. Freight tender created: {tender_id}',
+            )
+        else:
+            self.message_post(
+                body='Shipment group confirmed. Freight module not installed — no tender created.',
+            )
 
     def action_cancel(self):
         self.ensure_one()

@@ -103,7 +103,7 @@
                             <field name="target_delivery_date"/>
                             <field name="actual_delivery_date" readonly="1"/>
                             <field name="run_id"/>
-                            <field name="freight_tender_id"/>
+                            <!-- freight_tender_id field added by mml_roq_freight bridge module -->
                         </group>
                     </group>
                     <notebook>

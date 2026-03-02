@@ -5,10 +5,12 @@
     'author': 'MML Consumer Products',
     'category': 'Inventory/Purchase',
     'depends': [
+        'mml_base',
         'base', 'sale', 'purchase', 'stock',
         'stock_landed_costs',
-        'mml_freight',
     ],
+    'post_init_hook': 'post_init_hook',
+    'uninstall_hook': 'uninstall_hook',
     'data': [
         'security/ir.model.access.csv',
         'data/ir_sequence_data.xml',
