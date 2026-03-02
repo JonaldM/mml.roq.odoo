@@ -83,3 +83,12 @@ class RoqForecastRun(models.Model):
         })
         pipeline = RoqPipeline(self.env)
         pipeline.run(self)
+        self.env['mml.event'].emit(
+            'roq.forecast.run',
+            quantity=1,
+            billable_unit='roq_run',
+            res_model=self._name,
+            res_id=self.id,
+            source_module='mml_roq_forecast',
+            payload={'run_ref': self.name, 'sku_count': len(self.line_ids)},
+        )

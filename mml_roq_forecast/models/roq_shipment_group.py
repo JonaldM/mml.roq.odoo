@@ -108,6 +108,15 @@ class RoqShipmentGroup(models.Model):
         })
 
         self.write({'state': 'confirmed'})
+        self.env['mml.event'].emit(
+            'roq.shipment_group.confirmed',
+            quantity=1,
+            billable_unit='roq_po_line',
+            res_model=self._name,
+            res_id=self.id,
+            source_module='mml_roq_forecast',
+            payload={'group_ref': self.name},
+        )
         if tender_id:
             self.message_post(
                 body=f'Shipment group confirmed. Freight tender created: {tender_id}',
