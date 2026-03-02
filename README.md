@@ -10,10 +10,9 @@ Replaces the Excel-based ROQ (Reorder Quantity) system for MML Consumer Products
 
 | Module | Purpose | Depends on |
 |---|---|---|
-| `mml_freight_forwarding` | Freight tender, booking, and tracking (DSV API) | `base`, `purchase`, `stock` |
-| `mml_roq_forecast` | Demand forecast, ROQ calculation, consolidation, 12-month plan | `mml_freight_forwarding` + std modules |
+| `mml_roq_forecast` | Demand forecast, ROQ calculation, consolidation, 12-month plan | `mml_base`, `sale`, `purchase`, `stock`, `stock_landed_costs` |
 
-Install `mml_freight_forwarding` first — it has no dependency on the ROQ module.
+`mml_roq_forecast` integrates with `mml_freight` (freight orchestration) and `stock_3pl_core` (3PL) via the `mml_base` service locator — no hard module dependency. Install each module independently; the optional bridge modules (`mml_roq_freight`, `mml_freight_3pl`) wire them together when both are present.
 
 ---
 
@@ -61,8 +60,11 @@ Complete these steps on the Odoo instance **before** installing:
 ## Installation
 
 ```bash
-# Install both modules
-odoo-bin -d <db> -i mml_freight_forwarding,mml_roq_forecast --stop-after-init
+# Install mml_base first, then mml_roq_forecast
+odoo-bin -d <db> -i mml_base,mml_roq_forecast --stop-after-init
+
+# To connect with freight and 3PL, install bridge modules too:
+odoo-bin -d <db> -i mml_roq_freight,mml_freight_3pl --stop-after-init
 ```
 
 After install:
