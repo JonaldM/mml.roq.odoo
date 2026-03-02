@@ -21,3 +21,4 @@ from . import test_proactive_consolidation
 from . import test_reports
 from . import test_moq_enforcer
 from . import test_raise_po_wizard
+from . import test_roq_service

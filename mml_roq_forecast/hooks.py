@@ -1,5 +1,6 @@
 def post_init_hook(env):
     """Register mml_roq_forecast capabilities on install."""
+    from odoo.addons.mml_roq_forecast.services.roq_service import ROQService
     env['mml.capability'].register(
         [
             'roq.forecast.run',
@@ -8,6 +9,7 @@ def post_init_hook(env):
         ],
         module='mml_roq_forecast',
     )
+    env['mml.registry'].register('roq', ROQService)
 
 
 def uninstall_hook(env):
