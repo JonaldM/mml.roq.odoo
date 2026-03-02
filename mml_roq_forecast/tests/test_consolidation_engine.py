@@ -136,3 +136,18 @@ class TestConsolidationEngine(TransactionCase):
         groups = self.engine.create_reactive_shipment_groups(run)
         line = groups[0].line_ids[0]
         self.assertNotIn('free origin', line.push_pull_reason)
+
+    def test_push_reason_no_annotation_when_oos_blocks_push(self):
+        """Annotation must not appear when OOS blocks push, even with free_days > 0.
+
+        Bug: the original condition was `if free_days > 0`, which would show
+        "(incl. 14d free origin)" even when push=0 due to OOS — misleading to ops team.
+        Correct condition is `if free_days > 0 and max_push > 0`.
+        """
+        self.supplier_a.write({'free_days_at_origin': 14})
+        run = self._make_run_with_lines({
+            self.supplier_a: (0.05, 100, -10.0),  # OOS — push blocked unconditionally
+        })
+        groups = self.engine.create_reactive_shipment_groups(run)
+        line = groups[0].line_ids[0]
+        self.assertNotIn('free origin', line.push_pull_reason)

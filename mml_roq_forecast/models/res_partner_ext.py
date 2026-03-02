@@ -1,5 +1,6 @@
 import logging
 from odoo import models, fields, api
+from odoo.exceptions import ValidationError
 
 _logger = logging.getLogger(__name__)
 
@@ -36,6 +37,14 @@ class ResPartnerRoqExt(models.Model):
              'manufacturing completion. Extends the safe push window in consolidation planning. '
              'Default 0 = no free storage arranged.',
     )
+
+    @api.constrains('free_days_at_origin')
+    def _check_free_days_at_origin(self):
+        for rec in self:
+            if rec.free_days_at_origin < 0:
+                raise ValidationError(
+                    'Free Days at Origin cannot be negative.'
+                )
 
     # --- ROQ parameter overrides ---
     supplier_lead_time_days = fields.Integer(

@@ -142,7 +142,7 @@ class ConsolidationEngine:
                     review_interval_days=review_interval,
                 )
 
-                if free_days > 0:
+                if free_days > 0 and max_push > 0:
                     push_reason = f'Max push: {max_push}d (incl. {free_days}d free origin) | Max pull: {max_pull}d'
                 else:
                     push_reason = f'Max push: {max_push}d | Max pull: {max_pull}d'
