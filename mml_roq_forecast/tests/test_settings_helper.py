@@ -33,3 +33,17 @@ class TestSettingsHelper(TransactionCase):
         self.supplier.override_expiry_date = date.today() + timedelta(days=30)
         lt = self.helper.get_lead_time_days(self.supplier)
         self.assertEqual(lt, 60)
+
+    def test_free_days_returns_zero_when_not_set(self):
+        # Default field value = 0, SettingsHelper returns 0
+        result = self.helper.get_free_days_at_origin(self.supplier)
+        self.assertEqual(result, 0)
+
+    def test_free_days_returns_supplier_value(self):
+        self.supplier.free_days_at_origin = 14
+        result = self.helper.get_free_days_at_origin(self.supplier)
+        self.assertEqual(result, 14)
+
+    def test_free_days_returns_zero_when_supplier_is_none(self):
+        result = self.helper.get_free_days_at_origin(None)
+        self.assertEqual(result, 0)

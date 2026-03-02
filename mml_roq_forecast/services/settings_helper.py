@@ -73,6 +73,16 @@ class SettingsHelper:
             return supplier.supplier_service_level
         return TIER_SERVICE_LEVELS.get(tier, self._get_param('default_service_level', 0.97))
 
+    def get_free_days_at_origin(self, supplier):
+        """
+        Returns negotiated free storage days at origin for this supplier.
+        No system-level default — 0 is the field default on res.partner.
+        Not subject to override_expiry_date (commercial fact, not a temp override).
+        """
+        if supplier:
+            return supplier.free_days_at_origin or 0
+        return 0
+
     def get_lookback_weeks(self):
         return self._get_param('lookback_weeks', 156)
 
