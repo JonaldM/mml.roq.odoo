@@ -97,7 +97,7 @@ class TestConsolidationEngine(TransactionCase):
 
     def test_free_days_at_origin_stored_on_group_line(self):
         """free_days_at_origin from supplier propagates to shipment group line."""
-        self.supplier_a.free_days_at_origin = 14
+        self.supplier_a.write({'free_days_at_origin': 14})
         run = self._make_run_with_lines({
             self.supplier_a: (0.05, 100, 50.0),
         })
@@ -108,7 +108,7 @@ class TestConsolidationEngine(TransactionCase):
 
     def test_free_days_zero_stored_when_supplier_has_none(self):
         """Supplier with no free days → shipment group line has 0."""
-        self.supplier_a.free_days_at_origin = 0
+        self.supplier_a.write({'free_days_at_origin': 0})
         run = self._make_run_with_lines({
             self.supplier_a: (0.05, 100, 50.0),
         })
@@ -119,7 +119,7 @@ class TestConsolidationEngine(TransactionCase):
 
     def test_push_reason_includes_free_days_annotation(self):
         """When free_days_at_origin > 0, reason string includes annotation."""
-        self.supplier_a.free_days_at_origin = 14
+        self.supplier_a.write({'free_days_at_origin': 14})
         run = self._make_run_with_lines({
             self.supplier_a: (0.05, 100, 50.0),
         })
@@ -129,7 +129,7 @@ class TestConsolidationEngine(TransactionCase):
 
     def test_push_reason_no_annotation_when_zero_free_days(self):
         """When free_days_at_origin = 0, reason string has no annotation."""
-        self.supplier_a.free_days_at_origin = 0
+        self.supplier_a.write({'free_days_at_origin': 0})
         run = self._make_run_with_lines({
             self.supplier_a: (0.05, 100, 50.0),
         })
