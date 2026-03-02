@@ -54,7 +54,7 @@ class DemandHistoryService:
     def get_trailing_revenue(self, product_template, weeks=52):
         """
         Returns total revenue for a product.template over trailing `weeks`.
-        Sums across all warehouses (ABCD tier is global).
+        Sums across all warehouses — used only for product-level display fields.
         """
         today = date.today()
         start_date = today - timedelta(weeks=weeks)
@@ -62,6 +62,27 @@ class DemandHistoryService:
         lines = self.env['sale.order.line'].search([
             ('product_id.product_tmpl_id', '=', product_template.id),
             ('order_id.state', 'in', ['sale', 'done']),
+            ('order_id.date_order', '>=', start_date.strftime('%Y-%m-%d')),
+        ])
+
+        return sum(
+            line.product_uom_qty * line.price_unit
+            for line in lines
+        )
+
+    def get_trailing_revenue_by_warehouse(self, product_template, warehouse, weeks=52):
+        """
+        Returns total revenue for a product.template over trailing `weeks`,
+        filtered to orders originating from the given warehouse.
+        Used for per-warehouse ABCD tier classification.
+        """
+        today = date.today()
+        start_date = today - timedelta(weeks=weeks)
+
+        lines = self.env['sale.order.line'].search([
+            ('product_id.product_tmpl_id', '=', product_template.id),
+            ('order_id.state', 'in', ['sale', 'done']),
+            ('order_id.warehouse_id', '=', warehouse.id),
             ('order_id.date_order', '>=', start_date.strftime('%Y-%m-%d')),
         ])
 

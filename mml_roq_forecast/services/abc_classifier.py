@@ -1,11 +1,19 @@
 """
 ABCD Revenue Tier Classification Service.
 
-Classification is GLOBAL (not per-warehouse).
+Classification is PER-WAREHOUSE: each warehouse runs its own pareto ranking.
+A product can be A-tier in Auckland and C-tier in Wellington if its sales
+are geographically concentrated.
+
 Revenue bands are configurable: default 70/20/10.
-Dampener: a tier must be stable for N weeks before taking effect.
+Dampener: a tier must be stable for N consecutive runs before taking effect.
+  Dampener state is stored in roq.abc.history (latest record per product/warehouse).
 Override: floor (minimum tier), never a ceiling.
 Tier ordering for comparisons: A > B > C > D
+
+product.template.abc_tier is updated with the global (all-warehouses combined)
+pareto tier for UI display purposes only. The pipeline uses the per-warehouse
+tier map returned by classify_all_products().
 """
 
 TIER_RANK = {'A': 4, 'B': 3, 'C': 2, 'D': 1}
@@ -116,10 +124,22 @@ class AbcClassifier:
 
     def classify_all_products(self, run):
         """
-        Runs full ABCD classification for all ROQ-managed products.
-        Updates product.template fields and writes roq.abc.history records.
+        Runs ABCD classification per warehouse for all ROQ-managed products.
 
-        run: roq.forecast.run recordset
+        For each warehouse, builds a per-warehouse revenue map and runs the
+        pareto ranking independently. Dampener state is read from (and written
+        back to) roq.abc.history — the latest record per (product, warehouse)
+        is the authoritative current state.
+
+        product.template.abc_tier is updated with the aggregate (global)
+        pareto tier purely for display purposes on the product card.
+
+        Returns:
+            dict: {(product_tmpl_id, warehouse_id): {
+                'tier': str,
+                'revenue': float,
+                'cumulative_pct': float,
+            }}
         """
         from datetime import date
         from .demand_history import DemandHistoryService
@@ -131,77 +151,128 @@ class AbcClassifier:
             ('is_roq_managed', '=', True),
             ('type', 'in', ['product', 'consu']),
         ])
+        warehouses = self.env['stock.warehouse'].search([
+            ('is_active_for_roq', '=', True),
+        ])
 
         trailing_weeks = int(
             self.env['ir.config_parameter'].sudo()
             .get_param('roq.abc_trailing_revenue_weeks', 52)
         )
-        # TODO: snapshot abc_trailing_revenue_weeks onto the run record so audits
-        # can reproduce the exact revenue window used at classification time.
-        # Add a field roq.forecast.run.abc_trailing_revenue_weeks and write it here.
-
-        revenue_map = {}
-        for pt in products:
-            revenue_map[pt.id] = dh.get_trailing_revenue(pt, weeks=trailing_weeks)
 
         overrides = {
             pt.id: pt.abc_tier_override
             for pt in products if pt.abc_tier_override
         }
 
-        tier_assignments = self.classify_from_revenues(
-            revenue_map,
+        # --- Per-warehouse classification ---
+        # result_map: {(pt_id, wh_id): {'tier', 'revenue', 'cumulative_pct'}}
+        result_map = {}
+        history_vals = []
+        today = date.today()
+
+        for wh in warehouses:
+            # Build revenue map for this warehouse
+            wh_revenue_map = {
+                pt.id: dh.get_trailing_revenue_by_warehouse(pt, wh, weeks=trailing_weeks)
+                for pt in products
+            }
+
+            # Pareto ranking within this warehouse
+            wh_tier_assignments = self.classify_from_revenues(
+                wh_revenue_map,
+                band_a_pct=settings['band_a_pct'],
+                band_b_pct=settings['band_b_pct'],
+                overrides=overrides,
+            )
+
+            # Compute cumulative % within this warehouse
+            wh_total_rev = sum(wh_revenue_map.values())
+            wh_sorted = sorted(wh_revenue_map.items(), key=lambda x: x[1], reverse=True)
+            wh_cumulative_map = {}
+            cumulative = 0.0
+            for pid, rev in wh_sorted:
+                cumulative += rev
+                wh_cumulative_map[pid] = (cumulative / wh_total_rev * 100) if wh_total_rev else 0.0
+
+            # Fetch latest history records for this warehouse (dampener state)
+            # One query per warehouse — not per product — to stay performant.
+            last_history_by_product = {}
+            history_recs = self.env['roq.abc.history'].search([
+                ('warehouse_id', '=', wh.id),
+                ('product_id', 'in', products.ids),
+            ], order='date desc')
+            for h in history_recs:
+                pid = h.product_id.id
+                if pid not in last_history_by_product:
+                    last_history_by_product[pid] = h
+
+            for pt in products:
+                calculated = wh_tier_assignments.get(pt.id, 'D')
+                last = last_history_by_product.get(pt.id)
+                current_tier = last.tier_applied if last else 'C'
+                weeks_in_pending = last.weeks_in_pending if last else 0
+
+                dampener_result = self.apply_dampener(
+                    current_tier=current_tier,
+                    calculated_tier=calculated,
+                    weeks_in_pending=weeks_in_pending,
+                    dampener_weeks=settings['dampener_weeks'],
+                )
+                applied = dampener_result['applied_tier']
+
+                result_map[(pt.id, wh.id)] = {
+                    'tier': applied,
+                    'revenue': wh_revenue_map.get(pt.id, 0.0),
+                    'cumulative_pct': wh_cumulative_map.get(pt.id, 0.0),
+                }
+
+                history_vals.append({
+                    'product_id': pt.id,
+                    'warehouse_id': wh.id,
+                    'run_id': run.id,
+                    'date': today,
+                    'tier_calculated': calculated,
+                    'tier_applied': applied,
+                    'trailing_revenue': wh_revenue_map.get(pt.id, 0.0),
+                    'cumulative_pct': wh_cumulative_map.get(pt.id, 0.0),
+                    'override_active': overrides.get(pt.id, ''),
+                    'weeks_in_pending': dampener_result['weeks_in_pending'],
+                })
+
+        # --- Update product.template display fields with global pareto ---
+        # Global = sum of revenue across all warehouses, used only for the
+        # product card badge and stats (not the pipeline).
+        global_revenue_map = {
+            pt.id: dh.get_trailing_revenue(pt, weeks=trailing_weeks)
+            for pt in products
+        }
+        global_tier_assignments = self.classify_from_revenues(
+            global_revenue_map,
             band_a_pct=settings['band_a_pct'],
             band_b_pct=settings['band_b_pct'],
             overrides=overrides,
         )
-
-        # NOTE: total_rev is also computed inside classify_from_revenues().
-        # Both use the same revenue_map input, so results are numerically identical.
-        # If you ever pass a filtered map to classify_from_revenues, ensure
-        # the total_rev here is also updated to prevent cumulative_pct drift.
-        total_rev = sum(revenue_map.values())
-        sorted_by_rev = sorted(revenue_map.items(), key=lambda x: x[1], reverse=True)
-        cumulative_map = {}
+        global_total_rev = sum(global_revenue_map.values())
+        global_sorted = sorted(global_revenue_map.items(), key=lambda x: x[1], reverse=True)
+        global_cumulative_map = {}
         cumulative = 0.0
-        for pid, rev in sorted_by_rev:
+        for pid, rev in global_sorted:
             cumulative += rev
-            cumulative_map[pid] = (cumulative / total_rev * 100) if total_rev else 0.0
+            global_cumulative_map[pid] = (cumulative / global_total_rev * 100) if global_total_rev else 0.0
 
-        history_vals = []
         for pt in products:
-            calculated = tier_assignments.get(pt.id, 'D')
-            dampener_result = self.apply_dampener(
-                current_tier=pt.abc_tier or 'C',
-                calculated_tier=calculated,
-                weeks_in_pending=pt.abc_weeks_in_pending or 0,
-                dampener_weeks=settings['dampener_weeks'],
-            )
-            applied = dampener_result['applied_tier']
-
-            # sudo() is required here: classify_all_products may be called from
-            # action_run() by an ops-manager user who lacks write access to
-            # product.template. These are module-owned computed output fields,
-            # so sudo() is appropriate.
+            global_tier = global_tier_assignments.get(pt.id, 'D')
+            # sudo() required: ops-manager users lack write access to product.template
             pt.sudo().write({
-                'abc_tier': applied,
-                'abc_tier_pending': dampener_result.get('pending_tier'),
-                'abc_weeks_in_pending': dampener_result['weeks_in_pending'],
-                'abc_trailing_revenue': revenue_map.get(pt.id, 0.0),
-                'abc_cumulative_pct': cumulative_map.get(pt.id, 0.0),
+                'abc_tier': global_tier,
+                'abc_tier_pending': None,
+                'abc_weeks_in_pending': 0,
+                'abc_trailing_revenue': global_revenue_map.get(pt.id, 0.0),
+                'abc_cumulative_pct': global_cumulative_map.get(pt.id, 0.0),
             })
 
-            history_vals.append({
-                'product_id': pt.id,
-                'run_id': run.id,
-                'date': date.today(),
-                'tier_calculated': calculated,
-                'tier_applied': applied,
-                'trailing_revenue': revenue_map.get(pt.id, 0.0),
-                'cumulative_pct': cumulative_map.get(pt.id, 0.0),
-                'override_active': overrides.get(pt.id, ''),
-            })
-
-        # sudo() is required: roq.abc.history create may fail for ops-manager
-        # users who lack create rights on the history model directly.
+        # sudo() required: ops-manager users lack create rights on roq.abc.history
         self.env['roq.abc.history'].sudo().create(history_vals)
+
+        return result_map

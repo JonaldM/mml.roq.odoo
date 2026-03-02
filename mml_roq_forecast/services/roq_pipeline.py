@@ -51,11 +51,12 @@ class RoqPipeline:
         forecast_run.write({'status': 'running'})
 
         try:
-            # Step 1: ABCD Classification
-            self.abc.classify_all_products(forecast_run)
+            # Step 1: ABCD Classification (per-warehouse)
+            # Returns {(product_tmpl_id, warehouse_id): {'tier', 'revenue', 'cumulative_pct'}}
+            tier_map = self.abc.classify_all_products(forecast_run)
 
             # Step 2-5: Per-SKU per-warehouse forecast + ROQ
-            line_vals = self._compute_all_lines(forecast_run)
+            line_vals = self._compute_all_lines(forecast_run, tier_map)
 
             # Step 6-7: Aggregate by supplier + container fit
             line_vals = self._apply_container_fitting(line_vals)
@@ -85,8 +86,15 @@ class RoqPipeline:
             })
             raise
 
-    def _compute_all_lines(self, forecast_run):
-        """Compute per-SKU per-warehouse ROQ lines (steps 2-5)."""
+    def _compute_all_lines(self, forecast_run, tier_map):
+        """
+        Compute per-SKU per-warehouse ROQ lines (steps 2-5).
+
+        tier_map: {(product_tmpl_id, warehouse_id): {'tier', 'revenue', 'cumulative_pct'}}
+                  Returned by AbcClassifier.classify_all_products().
+                  Each (product, warehouse) pair has its own tier from the
+                  per-warehouse pareto ranking.
+        """
         products = self.env['product.template'].search([
             ('is_roq_managed', '=', True),
             ('type', 'in', ['product', 'consu']),
@@ -106,14 +114,7 @@ class RoqPipeline:
             if not product:
                 continue
 
-            tier = pt.abc_tier or 'D'
-            if tier == 'D':
-                # Dormant: write zero-ROQ line for each warehouse and move on
-                for wh in warehouses:
-                    line_vals.append(self._dormant_line(forecast_run, product, wh, pt))
-                continue
-
-            # Get primary supplier and MOQ
+            # Get primary supplier and MOQ once per product (same across warehouses)
             supplier_info = self.env['product.supplierinfo'].search([
                 ('product_tmpl_id', '=', pt.id),
             ], order='sequence asc, id asc', limit=1)
@@ -125,9 +126,18 @@ class RoqPipeline:
             lt_weeks = lt_days / 7.0
             review_weeks = review_days / 7.0
 
-            z_score = get_z_score(tier)
-
             for wh in warehouses:
+                # Per-warehouse tier — a product can be A in one warehouse, C in another
+                wh_data = tier_map.get((pt.id, wh.id), {})
+                tier = wh_data.get('tier', 'D')
+
+                if tier == 'D':
+                    # Dormant in this warehouse: zero-ROQ line, skip forecast
+                    line_vals.append(self._dormant_line(forecast_run, product, wh, pt))
+                    continue
+
+                z_score = get_z_score(tier)
+
                 history = self.dh.get_weekly_demand(product, wh, lookback_weeks=lookback)
                 method, confidence = select_forecast_method(history, min_n=min_n)
 
@@ -164,8 +174,9 @@ class RoqPipeline:
                     'warehouse_id': wh.id,
                     'supplier_id': supplier.id if supplier else False,
                     'abc_tier': tier,
-                    'trailing_12m_revenue': pt.abc_trailing_revenue,
-                    'cumulative_revenue_pct': pt.abc_cumulative_pct,
+                    # Per-warehouse revenue stats from tier_map
+                    'trailing_12m_revenue': wh_data.get('revenue', 0.0),
+                    'cumulative_revenue_pct': wh_data.get('cumulative_pct', 0.0),
                     'soh': soh,
                     'confirmed_po_qty': po_qty,
                     'inventory_position': inv_pos,

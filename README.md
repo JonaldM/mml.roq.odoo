@@ -190,7 +190,7 @@ odoo-bin --test-enable -d <db> --test-tags mml_roq_forecast --log-level=test
 
 | Decision | Rule |
 |---|---|
-| ABCD tier | Global (not per-warehouse); forecasts, safety stock, ROQ are per-warehouse |
+| ABCD tier | Per-warehouse — each warehouse runs its own pareto ranking; a product can be A in AKL and C in WLG. `product.template.abc_tier` stores the global (all-warehouses combined) tier for display only. |
 | Override semantics | Replace, never add — supplier override completely replaces system default |
 | MOQ uplift distribution | Extra units go to warehouse with lowest weeks-of-cover at delivery |
 | Push/pull hard block | `projected_inventory_at_delivery < 0` on **any** SKU → push = 0 (no delay) |

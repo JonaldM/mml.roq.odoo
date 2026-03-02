@@ -124,7 +124,7 @@ mml_odoo/
 3. **Override semantics = replace, not add** — supplier override completely replaces system default; never sums
 4. **Never auto-modify stock/financial data on discrepancy** — flag for human review
 5. **Push = 0 if any SKU has real OOS risk** — `projected_inventory_at_delivery < 0` blocks all push for that order
-6. **ABCD tier is global** (not per-warehouse); forecasts/ROQ/safety stock are per-warehouse
+6. **ABCD tier is per-warehouse** — each warehouse runs its own pareto ranking; a product can be A-tier in AKL and C-tier in WLG if its sales are concentrated. `product.template.abc_tier` stores the global (all-warehouses combined) tier for display purposes only — the pipeline uses the per-warehouse tier map from `classify_all_products()`
 7. **Dormant (Tier D): ROQ always = 0**, excluded from container planning
 8. **Dampener:** Tier must be stable for 4 consecutive runs before reclassification takes effect
 
