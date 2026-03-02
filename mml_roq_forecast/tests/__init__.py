@@ -1,6 +1,5 @@
 from . import test_install
 from . import test_model_extensions
-from . import test_freight_tender_ext
 from . import test_roq_models
 from . import test_shipment_group
 from . import test_forward_plan
@@ -20,6 +19,5 @@ from . import test_shipment_workflow
 from . import test_forward_plan_generator
 from . import test_proactive_consolidation
 from . import test_reports
-from . import test_lead_time_feedback
 from . import test_moq_enforcer
 from . import test_raise_po_wizard
