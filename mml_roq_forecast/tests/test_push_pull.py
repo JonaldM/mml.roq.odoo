@@ -104,3 +104,11 @@ class TestPushPull(TransactionCase):
         ]
         result = calculate_max_push_days(lines, free_days_at_origin=14)
         self.assertEqual(result, 56)  # 42 + 14
+
+    def test_free_days_do_not_override_low_cover_block(self):
+        # < 4 weeks cover blocks push even when free_days_at_origin > 0
+        lines = [
+            {'projected_inventory_at_delivery': 20.0, 'weeks_of_cover_at_delivery': 3.0},
+        ]
+        result = calculate_max_push_days(lines, free_days_at_origin=30)
+        self.assertEqual(result, 0)
