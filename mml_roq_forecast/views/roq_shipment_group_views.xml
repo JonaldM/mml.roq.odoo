@@ -117,6 +117,7 @@
                                            decoration-danger="oos_risk_flag == True"/>
                                     <field name="push_pull_days"/>
                                     <field name="push_pull_reason"/>
+                                    <field name="free_days_at_origin" optional="hide"/>
                                     <field name="original_ship_date"/>
                                     <field name="purchase_order_id"/>
                                 </tree>

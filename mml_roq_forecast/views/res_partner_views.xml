@@ -16,6 +16,8 @@
                                    placeholder="Select origin port"/>
                             <field name="destination_port_id"
                                    placeholder="Select NZ destination port"/>
+                            <field name="free_days_at_origin"
+                                   placeholder="0"/>
                             <field name="avg_lead_time_actual" readonly="1"/>
                             <field name="lead_time_std_dev" readonly="1"/>
                             <field name="lead_time_on_time_pct" readonly="1"/>
