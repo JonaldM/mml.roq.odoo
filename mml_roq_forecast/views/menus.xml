@@ -2,7 +2,8 @@
 <odoo>
     <menuitem id="menu_roq_root"
               name="ROQ Forecast"
-              sequence="10"/>
+              sequence="10"
+              action="action_roq_order_dashboard"/>
 
     <menuitem id="menu_roq_order_dashboard"
               name="Order Dashboard"
@@ -25,7 +26,8 @@
     <menuitem id="menu_roq_config"
               name="Configuration"
               parent="menu_roq_root"
-              sequence="90"/>
+              sequence="90"
+              groups="stock.group_stock_manager"/>
 
     <menuitem id="menu_roq_freight_ports"
               name="Freight Ports"
