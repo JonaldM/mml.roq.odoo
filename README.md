@@ -72,7 +72,7 @@ After install:
 1. Go to **Settings → General Settings → ROQ Forecast** and confirm default parameters
 2. Set `cbm_per_unit` and `pack_size` on all active products (ROQ / Procurement tab)
 3. Set `fob_port` and `min_qty` on supplier records
-4. Run a manual ROQ cycle from **MML Operations → ROQ → ROQ Runs** and compare output against the spreadsheet before enabling the weekly cron
+4. Run a manual ROQ cycle from **ROQ Forecast → ROQ Runs** and compare output against the spreadsheet before enabling the weekly cron
 
 ---
 
@@ -117,7 +117,7 @@ Suppliers missing `fob_port_id` are silently excluded from FOB consolidation. Su
 
 ### Freight Ports
 
-20 ports are seeded on install (**MML Operations → ROQ Forecast → Configuration → Freight Ports**):
+20 ports are seeded on install (**ROQ Forecast → Configuration → Freight Ports**):
 
 | Region | Ports |
 |---|---|
@@ -133,7 +133,7 @@ Port seed records use `noupdate="1"` — manual edits in Odoo survive module upg
 
 ## Order Dashboard & Draft PO Raise
 
-**MML Operations → ROQ Forecast → Order Dashboard**
+**ROQ Forecast → Order Dashboard**
 
 Opens the latest completed ROQ run as an actionable two-tab view:
 
