@@ -1,6 +1,10 @@
 def post_init_hook(env):
     """Register mml_roq_forecast capabilities on install."""
     from odoo.addons.mml_roq_forecast.services.roq_service import ROQService
+    # Capability names reflect what the module actually does (verb.noun pattern).
+    # 'roq.forecast.run' — can execute a ROQ forecast run
+    # 'roq.shipment.group.confirm' — can confirm a shipment group (action_confirm)
+    # 'roq.lead_time_stats.update' — can update supplier lead-time statistics
     env['mml.capability'].register(
         [
             'roq.forecast.run',
