@@ -1,12 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
-    <menuitem id="menu_mml_operations_root"
-              name="MML Operations"
-              sequence="10"/>
-
     <menuitem id="menu_roq_root"
               name="ROQ Forecast"
-              parent="menu_mml_operations_root"
               sequence="10"/>
 
     <menuitem id="menu_roq_order_dashboard"
