@@ -21,15 +21,17 @@ Per spec §3.2 table:
 """
 
 
-def calculate_max_push_days(lines):
+def calculate_max_push_days(lines, free_days_at_origin=0):
     """
     lines: list of dicts with 'projected_inventory_at_delivery' and 'weeks_of_cover_at_delivery'
+    free_days_at_origin: int — negotiated free storage days at supplier origin. Added to base
+        push after tier calc. OOS hard block (projected_inventory < 0) still returns 0 regardless.
     Returns: int — maximum days the order can be delayed for consolidation
     """
     if not lines:
         return 0
 
-    # Hard block: any item at real OOS
+    # Hard block: any item at real OOS — free days cannot override this
     if any(line['projected_inventory_at_delivery'] < 0 for line in lines):
         return 0
 
@@ -42,13 +44,15 @@ def calculate_max_push_days(lines):
     min_weeks = min(cover_values) if cover_values else 999.0
 
     if min_weeks > 12:
-        return 42   # 6 weeks
+        base_push = 42   # 6 weeks
     elif min_weeks >= 8:
-        return 28   # 4 weeks
+        base_push = 28   # 4 weeks
     elif min_weeks >= 4:
-        return 14   # 2 weeks
+        base_push = 14   # 2 weeks
     else:
-        return 0
+        return 0  # < 4 weeks cover — no push regardless of free days
+
+    return base_push + free_days_at_origin
 
 
 def calculate_max_pull_days(review_interval_days=30, override=None):

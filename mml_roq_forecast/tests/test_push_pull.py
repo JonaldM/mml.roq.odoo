@@ -70,3 +70,37 @@ class TestPushPull(TransactionCase):
         # Override smaller than review interval: supplier value still replaces default.
         result = calculate_max_pull_days(review_interval_days=30, override=14)
         self.assertEqual(result, 14)
+
+    def test_free_days_add_to_push_when_no_oos(self):
+        # 8-12 weeks cover → base push 28d; +14 free days = 42
+        lines = [
+            {'projected_inventory_at_delivery': 80.0, 'weeks_of_cover_at_delivery': 10.0},
+        ]
+        result = calculate_max_push_days(lines, free_days_at_origin=14)
+        self.assertEqual(result, 42)
+
+    def test_free_days_do_not_rescue_oos_block(self):
+        # OOS hard block is unconditional — free days cannot override it
+        lines = [
+            {'projected_inventory_at_delivery': -1.0, 'weeks_of_cover_at_delivery': -0.1},
+        ]
+        result = calculate_max_push_days(lines, free_days_at_origin=30)
+        self.assertEqual(result, 0)
+
+    def test_free_days_zero_is_backward_compatible(self):
+        # Default param = 0 → existing behaviour unchanged
+        lines = [
+            {'projected_inventory_at_delivery': 80.0, 'weeks_of_cover_at_delivery': 10.0},
+        ]
+        self.assertEqual(
+            calculate_max_push_days(lines),
+            calculate_max_push_days(lines, free_days_at_origin=0),
+        )
+
+    def test_free_days_extend_push_beyond_tier_maximum(self):
+        # >12 weeks → base 42d; free days adds on top
+        lines = [
+            {'projected_inventory_at_delivery': 150.0, 'weeks_of_cover_at_delivery': 15.0},
+        ]
+        result = calculate_max_push_days(lines, free_days_at_origin=14)
+        self.assertEqual(result, 56)  # 42 + 14
