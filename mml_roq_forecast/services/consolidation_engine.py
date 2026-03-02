@@ -135,18 +135,25 @@ class ConsolidationEngine:
                     'projected_inventory_at_delivery': l.projected_inventory_at_delivery,
                     'weeks_of_cover_at_delivery': l.weeks_of_cover_at_delivery,
                 } for l in lines]
-                max_push = calculate_max_push_days(line_data)
+                free_days = sh.get_free_days_at_origin(supplier)
+                max_push = calculate_max_push_days(line_data, free_days_at_origin=free_days)
                 review_interval = sh.get_review_interval_days(supplier)
                 max_pull = calculate_max_pull_days(
                     review_interval_days=review_interval,
                 )
+
+                if free_days > 0:
+                    push_reason = f'Max push: {max_push}d (incl. {free_days}d free origin) | Max pull: {max_pull}d'
+                else:
+                    push_reason = f'Max push: {max_push}d | Max pull: {max_pull}d'
 
                 self.env['roq.shipment.group.line'].create({
                     'group_id': sg.id,
                     'supplier_id': supplier.id,
                     'cbm': supplier_cbm,
                     'push_pull_days': 0,  # User sets actual push/pull days
-                    'push_pull_reason': f'Max push: {max_push}d | Max pull: {max_pull}d',
+                    'push_pull_reason': push_reason,
+                    'free_days_at_origin': free_days,
                     'oos_risk_flag': supplier_oos,
                     'original_ship_date': planned_ship_date,
                     'product_count': len(set(l.product_id.id for l in lines)),
