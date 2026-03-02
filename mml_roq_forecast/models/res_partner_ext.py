@@ -29,6 +29,13 @@ class ResPartnerRoqExt(models.Model):
              'FOB/FCA/EXW = MML arranges main freight → included in consolidation. '
              'CIF/DDP/DAP/etc. = supplier arranges freight → excluded from consolidation.',
     )
+    free_days_at_origin = fields.Integer(
+        string='Free Days at Origin',
+        default=0,
+        help='Negotiated free storage days at the supplier\'s origin warehouse/port after '
+             'manufacturing completion. Extends the safe push window in consolidation planning. '
+             'Default 0 = no free storage arranged.',
+    )
 
     # --- ROQ parameter overrides ---
     supplier_lead_time_days = fields.Integer(

@@ -139,6 +139,11 @@ class RoqShipmentGroupLine(models.Model):
         help='Positive = pushed (delayed). Negative = pulled (brought forward). 0 = as planned.',
     )
     push_pull_reason = fields.Char(string='Push/Pull Reason')
+    free_days_at_origin = fields.Integer(
+        string='Free Days at Origin',
+        readonly=True,
+        help='Snapshot of supplier free days at time of shipment group creation.',
+    )
     oos_risk_flag = fields.Boolean(
         string='OOS Risk',
         help='True if any SKU in this supplier order has projected inventory at delivery < 0.',
