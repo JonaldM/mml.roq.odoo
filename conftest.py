@@ -195,6 +195,8 @@ def _install_odoo_stubs():
     odoo.exceptions = odoo_exceptions
     odoo.tests = odoo_tests
     odoo.http = odoo_http
+    # Translation stub: _ is the standard Odoo i18n helper; return string unchanged.
+    odoo._ = lambda s: s
 
     sys.modules['odoo'] = odoo
     sys.modules['odoo.models'] = odoo_models
