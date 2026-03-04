@@ -22,6 +22,11 @@ SHIPMENT_MODE = [
     ('proactive', 'Proactive'),  # Created from 12-month forward plan
 ]
 
+# States in which a shipment group can be dragged on the planning calendar.
+# Locked states (tendered, booked, delivered, cancelled) are not affected by
+# the write() date-shift logic.
+DRAGGABLE_STATES = {'draft', 'confirmed'}
+
 
 class RoqShipmentGroup(models.Model):
     _name = 'roq.shipment.group'
@@ -114,6 +119,66 @@ class RoqShipmentGroup(models.Model):
                 rec.freight_eta = False
                 rec.freight_status = False
                 rec.freight_last_update = False
+
+    def write(self, vals):
+        """Override to detect delivery date changes on draggable groups.
+
+        When target_delivery_date changes:
+        - Shifts target_ship_date by the same delta (preserving transit duration)
+        - Re-evaluates oos_risk_flag on line records
+        - Posts a chatter message recording the change
+        Only applies to groups in DRAGGABLE_STATES (draft, confirmed).
+        Locked states (tendered, booked, delivered) are not affected.
+        """
+        date_changing = 'target_delivery_date' in vals
+        old_dates = {}
+        if date_changing:
+            for rec in self:
+                if rec.state in DRAGGABLE_STATES:
+                    old_dates[rec.id] = rec.target_delivery_date
+
+        result = super().write(vals)
+
+        if date_changing and old_dates:
+            new_delivery = vals['target_delivery_date']
+            if isinstance(new_delivery, str):
+                from odoo.fields import Date
+                new_delivery = Date.from_string(new_delivery)
+
+            for rec in self:
+                if rec.id not in old_dates:
+                    continue
+                old_delivery = old_dates[rec.id]
+                if old_delivery == new_delivery:
+                    continue
+
+                delta = new_delivery - old_delivery
+
+                # Shift target_ship_date by same delta to preserve transit window
+                if rec.target_ship_date:
+                    rec.target_ship_date = rec.target_ship_date + delta
+
+                # Re-evaluate OOS risk flags on line records
+                for line in rec.line_ids:
+                    if hasattr(line, 'projected_inventory_at_delivery'):
+                        line.oos_risk_flag = (
+                            line.projected_inventory_at_delivery is not None
+                            and line.projected_inventory_at_delivery < 0
+                        )
+
+                # Chatter audit trail
+                delta_days = delta.days
+                direction = 'pushed out' if delta_days > 0 else 'pulled forward'
+                rec.message_post(
+                    body=(
+                        f'Shipment rescheduled: delivery {direction} by '
+                        f'{abs(delta_days)} day(s) '
+                        f'({old_delivery} → {new_delivery}).'
+                    ),
+                    message_type='notification',
+                )
+
+        return result
 
     def action_confirm(self):
         """

@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
 from odoo.tests.common import TransactionCase
@@ -67,3 +67,45 @@ class TestFreightStatusFields(TransactionCase):
             self.group._compute_freight_status()
         self.assertEqual(self.group.freight_eta, eta)
         self.assertEqual(self.group.freight_status, 'in_transit')
+
+
+class TestRescheduleWrite(TransactionCase):
+
+    def setUp(self):
+        super().setUp()
+        self.group = self.env['roq.shipment.group'].create({
+            'origin_port': 'CNSHA',
+            'destination_port': 'NZAKL',
+            'container_type': '40HQ',
+            'target_ship_date': date(2026, 6, 1),
+            'target_delivery_date': date(2026, 7, 1),
+            'state': 'draft',
+        })
+
+    def test_ship_date_shifts_proportionally_when_delivery_changes(self):
+        """Shifting delivery by 7 days shifts ship date by 7 days too."""
+        original_ship = self.group.target_ship_date
+        self.group.write({'target_delivery_date': date(2026, 7, 8)})
+        self.assertEqual(
+            self.group.target_ship_date,
+            original_ship + timedelta(days=7),
+        )
+
+    def test_chatter_message_posted_on_date_change(self):
+        """A mail.message is posted recording the date change."""
+        msg_count_before = len(self.group.message_ids)
+        self.group.write({'target_delivery_date': date(2026, 7, 8)})
+        self.assertGreater(len(self.group.message_ids), msg_count_before)
+
+    def test_no_chatter_when_non_date_field_changes(self):
+        """No date-change message when only notes change."""
+        msg_count_before = len(self.group.message_ids)
+        self.group.write({'notes': 'updated'})
+        self.assertEqual(len(self.group.message_ids), msg_count_before)
+
+    def test_locked_states_ignore_date_shift_logic(self):
+        """Tendered/booked groups: write succeeds but no shift logic runs."""
+        self.group.state = 'tendered'
+        original_ship = self.group.target_ship_date
+        self.group.write({'target_delivery_date': date(2026, 7, 15)})
+        self.assertEqual(self.group.target_ship_date, original_ship)
