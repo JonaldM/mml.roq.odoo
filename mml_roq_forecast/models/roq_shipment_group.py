@@ -62,6 +62,23 @@ class RoqShipmentGroup(models.Model):
         help='Positive = late. Negative = early.',
     )
 
+    # Freight status (populated via mml.registry.service('freight') — empty if mml_freight not installed)
+    freight_eta = fields.Datetime(
+        string='Freight ETA',
+        compute='_compute_freight_status',
+        store=False,
+    )
+    freight_status = fields.Char(
+        string='Freight Status',
+        compute='_compute_freight_status',
+        store=False,
+    )
+    freight_last_update = fields.Datetime(
+        string='Last Freight Update',
+        compute='_compute_freight_status',
+        store=False,
+    )
+
     # ROQ internal fields
     fill_percentage = fields.Float(string='Fill %', digits=(5, 1))
     mode = fields.Selection(SHIPMENT_MODE, default='reactive', required=True)
@@ -81,6 +98,22 @@ class RoqShipmentGroup(models.Model):
         string='FOB Port (Key)', related='origin_port', store=True,
         help='Alias for origin_port used by consolidation grouping logic.',
     )
+
+    @api.depends('state')
+    def _compute_freight_status(self):
+        """Fetch live freight booking status via service locator.
+        Returns empty fields if mml_freight is not installed (NullService pattern)."""
+        svc = self.env['mml.registry'].service('freight')
+        for rec in self:
+            result = svc.get_booking_status(rec.id)
+            if result:
+                rec.freight_eta = result.get('eta')
+                rec.freight_status = result.get('status')
+                rec.freight_last_update = result.get('last_update')
+            else:
+                rec.freight_eta = False
+                rec.freight_status = False
+                rec.freight_last_update = False
 
     def action_confirm(self):
         """
