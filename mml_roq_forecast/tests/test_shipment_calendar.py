@@ -133,7 +133,9 @@ class TestConsolidationSuggestion(TransactionCase):
         })
 
     def test_no_suggestion_when_same_port_but_far_apart(self):
-        """Groups 60 days apart — no suggestion."""
+        """Groups >21 days apart — outside consolidation window, no suggestion."""
+        # group_a delivery is 2026-07-01; push group_b 60 days out to 2026-08-30
+        self.group_b.target_delivery_date = date(2026, 8, 30)
         self.assertFalse(self.group_a._find_consolidation_candidates())
 
     def test_suggestion_when_groups_within_window(self):

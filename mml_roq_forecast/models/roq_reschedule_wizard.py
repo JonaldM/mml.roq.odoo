@@ -27,6 +27,7 @@ class RoqRescheduleWizard(models.TransientModel):
     )
 
     def _compute_summary(self):
+        """Build a human-readable consolidation suggestion summary."""
         for rec in self:
             names = ', '.join(rec.candidate_group_ids.mapped('name'))
             rec.summary = (
