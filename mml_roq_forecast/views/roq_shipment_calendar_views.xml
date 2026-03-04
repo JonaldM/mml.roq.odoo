@@ -1,0 +1,72 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <record id="roq_shipment_group_calendar_view" model="ir.ui.view">
+    <field name="name">roq.shipment.group.calendar</field>
+    <field name="model">roq.shipment.group</field>
+    <field name="arch" type="xml">
+      <calendar
+        string="Shipment Calendar"
+        date_start="target_ship_date"
+        date_stop="target_delivery_date"
+        color="state"
+        mode="month"
+        quick_create="false"
+        event_open_popup="true"
+      >
+        <field name="name"/>
+        <field name="state"/>
+        <field name="origin_port"/>
+        <field name="container_type"/>
+        <field name="fill_percentage"/>
+        <field name="destination_warehouse_ids"/>
+        <field name="freight_eta"/>
+        <field name="freight_status" invisible="freight_eta == False"/>
+        <field name="consolidation_suggestion" invisible="1"/>
+      </calendar>
+    </field>
+  </record>
+
+  <record id="action_roq_shipment_calendar" model="ir.actions.act_window">
+    <field name="name">Shipment Calendar</field>
+    <field name="res_model">roq.shipment.group</field>
+    <field name="view_mode">calendar,list,form</field>
+    <field name="view_id" ref="roq_shipment_group_calendar_view"/>
+    <field name="context">{'search_default_filter_active_states': 1}</field>
+    <field name="help" type="html">
+      <p class="o_view_nocontent_smiling_face">No shipments to display.</p>
+      <p>Shipment groups appear here once created from a ROQ run. Use month view to plan arrivals; week view for near-term operations.</p>
+    </field>
+  </record>
+
+  <record id="roq_shipment_group_calendar_search" model="ir.ui.view">
+    <field name="name">roq.shipment.group.calendar.search</field>
+    <field name="model">roq.shipment.group</field>
+    <field name="arch" type="xml">
+      <search string="Filter Shipments">
+        <field name="name" string="Shipment"/>
+        <field name="destination_warehouse_ids" string="Warehouse"/>
+        <field name="container_type" string="Container"/>
+        <field name="state" string="State"/>
+        <separator/>
+        <filter string="Planned (Draft)" name="filter_draft"
+                domain="[('state','=','draft')]"/>
+        <filter string="Confirmed" name="filter_confirmed"
+                domain="[('state','=','confirmed')]"/>
+        <filter string="In Transit" name="filter_in_transit"
+                domain="[('state','in',['tendered','booked'])]"/>
+        <filter string="Active" name="filter_active_states"
+                domain="[('state','not in',['delivered','cancelled'])]"/>
+        <group expand="0" string="Group By">
+          <filter string="Warehouse" name="group_warehouse"
+                  context="{'group_by': 'destination_warehouse_ids'}"/>
+          <filter string="State" name="group_state"
+                  context="{'group_by': 'state'}"/>
+          <filter string="Container Type" name="group_container"
+                  context="{'group_by': 'container_type'}"/>
+        </group>
+      </search>
+    </field>
+  </record>
+
+</odoo>
