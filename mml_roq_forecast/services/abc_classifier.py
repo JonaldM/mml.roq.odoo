@@ -20,6 +20,19 @@ TIER_RANK = {'A': 4, 'B': 3, 'C': 2, 'D': 1}
 RANK_TIER = {4: 'A', 3: 'B', 2: 'C', 1: 'D'}
 
 
+def _safe_int(val, default, lo=None, hi=None):
+    """Parse val as int with a fallback default and optional bounds clamping."""
+    try:
+        result = int(val) if val not in (None, False, '') else default
+    except (TypeError, ValueError):
+        result = default
+    if lo is not None:
+        result = max(lo, result)
+    if hi is not None:
+        result = min(hi, result)
+    return result
+
+
 def _higher_tier(t1, t2):
     """Returns the higher of two tier strings."""
     return t1 if TIER_RANK.get(t1, 0) >= TIER_RANK.get(t2, 0) else t2
@@ -117,9 +130,9 @@ class AbcClassifier:
         """Read ROQ settings from ir.config_parameter with fallback defaults."""
         get = self.env['ir.config_parameter'].sudo().get_param
         return {
-            'band_a_pct': int(get('roq.abc_band_a_pct') or 70),
-            'band_b_pct': int(get('roq.abc_band_b_pct') or 20),
-            'dampener_weeks': int(get('roq.abc_dampener_weeks') or 4),
+            'band_a_pct': _safe_int(get('roq.abc_band_a_pct'), 70, lo=1, hi=99),
+            'band_b_pct': _safe_int(get('roq.abc_band_b_pct'), 20, lo=1, hi=98),
+            'dampener_weeks': _safe_int(get('roq.abc_dampener_weeks'), 4, lo=1, hi=52),
         }
 
     def classify_all_products(self, run):
@@ -155,9 +168,10 @@ class AbcClassifier:
             ('is_active_for_roq', '=', True),
         ])
 
-        trailing_weeks = int(
+        trailing_weeks = _safe_int(
             self.env['ir.config_parameter'].sudo()
-            .get_param('roq.abc_trailing_revenue_weeks', 52)
+            .get_param('roq.abc_trailing_revenue_weeks', 52),
+            52, lo=1, hi=520,
         )
 
         overrides = {

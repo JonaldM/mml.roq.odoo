@@ -1,5 +1,5 @@
 import logging
-from odoo import models, fields, api, exceptions
+from odoo import models, fields, api, exceptions, _
 
 _logger = logging.getLogger(__name__)
 
@@ -58,7 +58,13 @@ class RoqRaisePoWizard(models.TransientModel):
                     ('partner_id', '=', self.supplier_id.id),
                     ('product_tmpl_id', '=', wl.product_id.product_tmpl_id.id),
                 ], limit=1)
-                price_unit = supplierinfo.price if supplierinfo else 0.0
+                if not supplierinfo:
+                    raise exceptions.UserError(
+                        _("No supplier pricelist entry found for '%s' from '%s'. "
+                          "Add a vendor price before raising the PO.") % (
+                            wl.product_id.display_name, self.supplier_id.name)
+                    )
+                price_unit = supplierinfo.price
                 product_uom = wl.product_id.uom_po_id
 
                 order_lines.append((0, 0, {
@@ -91,6 +97,9 @@ class RoqRaisePoWizard(models.TransientModel):
         # Write back the first PO to the shipment group supplier line
         if sg_line and po_ids:
             sg_line.sudo().write({'purchase_order_id': po_ids[0]})
+            # Link all POs to the shipment group if it has a po_ids field
+            if sg_line.group_id and hasattr(sg_line.group_id, 'po_ids'):
+                sg_line.group_id.sudo().write({'po_ids': [(4, pid) for pid in po_ids]})
 
         # Return action opening the raised PO(s)
         if len(po_ids) == 1:

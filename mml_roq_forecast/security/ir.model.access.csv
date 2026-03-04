@@ -5,9 +5,9 @@ access_roq_forecast_line_user,roq.forecast.line user,model_roq_forecast_line,bas
 access_roq_forecast_line_manager,roq.forecast.line manager,model_roq_forecast_line,base.group_system,1,1,1,1
 access_roq_abc_history_user,roq.abc.history user,model_roq_abc_history,base.group_user,1,0,0,0
 access_roq_abc_history_manager,roq.abc.history manager,model_roq_abc_history,base.group_system,1,1,1,1
-access_roq_shipment_group_user,roq.shipment.group user,model_roq_shipment_group,base.group_user,1,1,1,0
+access_roq_shipment_group_user,roq.shipment.group user,model_roq_shipment_group,base.group_user,1,0,0,0
 access_roq_shipment_group_manager,roq.shipment.group manager,model_roq_shipment_group,base.group_system,1,1,1,1
-access_roq_shipment_group_line_user,roq.shipment.group.line user,model_roq_shipment_group_line,base.group_user,1,1,1,0
+access_roq_shipment_group_line_user,roq.shipment.group.line user,model_roq_shipment_group_line,base.group_user,1,0,0,0
 access_roq_shipment_group_line_manager,roq.shipment.group.line manager,model_roq_shipment_group_line,base.group_system,1,1,1,1
 access_roq_forward_plan_user,roq.forward.plan user,model_roq_forward_plan,base.group_user,1,0,0,0
 access_roq_forward_plan_manager,roq.forward.plan manager,model_roq_forward_plan,base.group_system,1,1,1,1

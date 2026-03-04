@@ -14,7 +14,10 @@ Step order (per spec §2.2):
 
 Called by roq.forecast.run.action_run()
 """
+import logging
 from collections import defaultdict
+
+_logger = logging.getLogger(__name__)
 
 from .abc_classifier import AbcClassifier
 from .demand_history import DemandHistoryService
@@ -80,9 +83,10 @@ class RoqPipeline:
             con_engine.create_reactive_shipment_groups(forecast_run)
 
         except Exception as e:
+            _logger.exception('ROQ pipeline failed for run %s', forecast_run.id)
             forecast_run.write({
                 'status': 'error',
-                'notes': str(e),
+                'notes': f'Pipeline error: {type(e).__name__}. Check server logs for details.',
             })
             raise
 
@@ -220,8 +224,8 @@ class RoqPipeline:
         from .moq_enforcer import MoqEnforcer
 
         get = self.env['ir.config_parameter'].sudo().get_param
-        lcl_threshold = int(get('roq.container_lcl_threshold_pct', 50))
-        max_padding = int(get('roq.max_padding_weeks_cover', 26))
+        lcl_threshold = max(1, min(100, int(get('roq.container_lcl_threshold_pct', 50) or 50)))
+        max_padding = max(1, min(52, int(get('roq.max_padding_weeks_cover', 26) or 26)))
         enforce_moq = get('roq.enable_moq_enforcement', 'True') == 'True'
         fitter = ContainerFitter(lcl_threshold, max_padding)
 

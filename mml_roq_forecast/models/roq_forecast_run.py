@@ -1,5 +1,5 @@
 import logging
-from odoo import models, fields, api
+from odoo import models, fields, api, exceptions, _
 
 _logger = logging.getLogger(__name__)
 
@@ -84,6 +84,8 @@ class RoqForecastRun(models.Model):
     def action_run(self):
         """User-triggered or cron-triggered ROQ run."""
         self.ensure_one()
+        if not self.env.user.has_group('base.group_system'):
+            raise exceptions.AccessError(_('Only system administrators can trigger ROQ runs manually.'))
         from ..services.roq_pipeline import RoqPipeline
         # Snapshot current settings on the run header
         get = self.env['ir.config_parameter'].sudo().get_param
