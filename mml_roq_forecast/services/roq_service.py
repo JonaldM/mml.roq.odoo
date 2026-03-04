@@ -29,15 +29,15 @@ class ROQService:
         if not booking_id:
             return
 
-        svc = self.env['mml.registry'].service('freight')
+        freight_svc = self.env['mml.registry'].service('freight')
         # get_booking_lead_time confirms booking exists and transit_days_actual is set.
-        if svc.get_booking_lead_time(booking_id) is None:
+        if freight_svc.get_booking_lead_time(booking_id) is None:
             return
 
-        booking = self.env['freight.booking'].browse(booking_id)
-        if not booking.purchase_order_id:
+        partner_id = freight_svc.get_booking_supplier_partner_id(booking_id)
+        if not partner_id:
             return
 
-        partner = booking.purchase_order_id.partner_id
-        if partner:
+        partner = self.env['res.partner'].browse(partner_id)
+        if partner.exists():
             partner.action_update_lead_time_stats()

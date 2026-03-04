@@ -34,5 +34,6 @@
     'installable': True,
     'auto_install': False,
     'application': True,
+    'web_icon': 'mml_roq_forecast,static/description/icon.png',
     'license': 'LGPL-3',
 }

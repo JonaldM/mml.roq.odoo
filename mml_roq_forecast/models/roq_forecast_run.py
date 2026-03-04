@@ -3,6 +3,20 @@ from odoo import models, fields, api
 
 _logger = logging.getLogger(__name__)
 
+
+def _safe_int(val, default):
+    try:
+        return int(val) if val not in (None, '', False) else default
+    except (ValueError, TypeError):
+        return default
+
+
+def _safe_float(val, default):
+    try:
+        return float(val) if val not in (None, '', False) else default
+    except (ValueError, TypeError):
+        return default
+
 RUN_STATUS = [
     ('draft', 'Draft'),
     ('running', 'Running'),
@@ -74,11 +88,11 @@ class RoqForecastRun(models.Model):
         # Snapshot current settings on the run header
         get = self.env['ir.config_parameter'].sudo().get_param
         self.write({
-            'lookback_weeks': int(get('roq.lookback_weeks', 156)),
-            'sma_window_weeks': int(get('roq.sma_window_weeks', 52)),
-            'default_lead_time_days': int(get('roq.default_lead_time_days', 100)),
-            'default_review_interval_days': int(get('roq.default_review_interval_days', 30)),
-            'default_service_level': float(get('roq.default_service_level', 0.97)),
+            'lookback_weeks': _safe_int(get('roq.lookback_weeks'), 156),
+            'sma_window_weeks': _safe_int(get('roq.sma_window_weeks'), 52),
+            'default_lead_time_days': _safe_int(get('roq.default_lead_time_days'), 100),
+            'default_review_interval_days': _safe_int(get('roq.default_review_interval_days'), 30),
+            'default_service_level': _safe_float(get('roq.default_service_level'), 0.97),
             'enable_moq_enforcement': get('roq.enable_moq_enforcement', 'True') == 'True',
         })
         pipeline = RoqPipeline(self.env)

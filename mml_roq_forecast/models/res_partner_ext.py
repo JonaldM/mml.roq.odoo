@@ -70,6 +70,19 @@ class ResPartnerRoqExt(models.Model):
         help='JSON array of {start, end, reason} objects. e.g. CNY shutdown periods.',
     )
 
+    @api.constrains('supplier_holiday_periods')
+    def _validate_holiday_periods_json(self):
+        import json
+        for rec in self:
+            if rec.supplier_holiday_periods:
+                try:
+                    json.loads(rec.supplier_holiday_periods)
+                except (json.JSONDecodeError, ValueError) as e:
+                    raise ValidationError(
+                        'Supplier Holiday Periods contains invalid JSON: %s\n'
+                        'Please correct the format before saving.' % str(e)
+                    )
+
     # --- Lead time statistics (written by cron / action_update_lead_time_stats) ---
     avg_lead_time_actual = fields.Float(
         string='Avg Actual Lead Time (Days)', digits=(6, 1), readonly=True,
