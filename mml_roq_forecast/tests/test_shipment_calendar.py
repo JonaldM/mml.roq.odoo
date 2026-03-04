@@ -157,3 +157,68 @@ class TestConsolidationSuggestion(TransactionCase):
         self.group_a.target_delivery_date = date(2026, 7, 8)
         candidates = self.group_a._find_consolidation_candidates()
         self.assertFalse(candidates)
+
+
+class TestWarehouseWeekLoad(TransactionCase):
+
+    def setUp(self):
+        super().setUp()
+        self.warehouse = self.env['stock.warehouse'].search([], limit=1)
+        self.warehouse.roq_weekly_capacity_cbm = 100.0
+        self.warehouse.roq_capacity_unit = 'cbm'
+        self.group = self.env['roq.shipment.group'].create({
+            'origin_port': 'CNSHA',
+            'destination_port': 'NZAKL',
+            'container_type': '40HQ',
+            'total_cbm': 60.0,
+            'target_ship_date': '2026-06-01',
+            'target_delivery_date': '2026-07-06',
+            'state': 'confirmed',
+            'destination_warehouse_ids': [(4, self.warehouse.id)],
+        })
+
+    def test_load_computed_for_warehouse_week(self):
+        load = self.env['roq.warehouse.week.load'].get_load(
+            self.warehouse.id,
+            date(2026, 7, 6),
+        )
+        self.assertAlmostEqual(load['cbm'], 60.0)
+
+    def test_load_pct_calculated_against_capacity(self):
+        load = self.env['roq.warehouse.week.load'].get_load(
+            self.warehouse.id,
+            date(2026, 7, 6),
+        )
+        self.assertAlmostEqual(load['pct'], 60.0)
+
+    def test_load_status_green_below_70(self):
+        load = self.env['roq.warehouse.week.load'].get_load(
+            self.warehouse.id,
+            date(2026, 7, 6),
+        )
+        self.assertEqual(load['status'], 'green')
+
+    def test_load_status_amber_70_to_90(self):
+        self.group.total_cbm = 80.0
+        load = self.env['roq.warehouse.week.load'].get_load(
+            self.warehouse.id,
+            date(2026, 7, 6),
+        )
+        self.assertEqual(load['status'], 'amber')
+
+    def test_load_status_red_over_90(self):
+        self.group.total_cbm = 95.0
+        load = self.env['roq.warehouse.week.load'].get_load(
+            self.warehouse.id,
+            date(2026, 7, 6),
+        )
+        self.assertEqual(load['status'], 'red')
+
+    def test_no_capacity_set_returns_none_status(self):
+        """When warehouse has no capacity configured, status is 'none'."""
+        self.warehouse.roq_weekly_capacity_cbm = 0.0
+        load = self.env['roq.warehouse.week.load'].get_load(
+            self.warehouse.id,
+            date(2026, 7, 6),
+        )
+        self.assertEqual(load['status'], 'none')

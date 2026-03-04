@@ -11,3 +11,4 @@ from . import roq_forward_plan
 from . import res_config_settings_ext
 from . import roq_raise_po_wizard
 from . import roq_reschedule_wizard
+from . import roq_warehouse_week_load
