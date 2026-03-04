@@ -1,0 +1,538 @@
+/**
+ * Shipment Planning Calendar — "Navigation Chart" aesthetic
+ *
+ * Clean, high-contrast procurement planning interface.
+ * Maritime color system: bold state colours on chart-white ground.
+ * Monospace typography for shipment references; crisp sans for metadata.
+ *
+ * Targets Odoo 19 calendar (FullCalendar v6 + Odoo wrappers).
+ * Class names verified against o_calendar_* and .fc-* patterns.
+ */
+
+// ─── Google Fonts ──────────────────────────────────────────────────────────
+// DM Mono   — shipment refs, codes, identifiers
+// Plus Jakarta Sans — clean operational label font
+@import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+
+// ─── Design Tokens ─────────────────────────────────────────────────────────
+:root {
+  // State palette — maritime navigation chart colours
+  --nav-draft:      #94a3b8;   // slate grey — unconfirmed, hazy horizon
+  --nav-confirmed:  #0369a1;   // deep ocean blue — order placed
+  --nav-tendered:   #b45309;   // warm amber — rate requested, waiting
+  --nav-booked:     #047857;   // deep emerald — locked, in motion
+  --nav-delivered:  #374151;   // charcoal — archived, done
+  --nav-cancelled:  #e2e8f0;   // light grey — void
+
+  // Surface
+  --nav-canvas:     #fafaf9;   // warm white — chart paper
+  --nav-grid:       #e7e5e4;   // subtle grid lines
+  --nav-surface:    #ffffff;
+  --nav-border:     #d6d3d1;
+
+  // Text
+  --nav-text:       #1c1917;
+  --nav-text-muted: #78716c;
+  --nav-text-label: #57534e;
+
+  // Alert colours
+  --nav-alert-oos:   #dc2626;   // red — OOS risk
+  --nav-alert-consolidation: #7c3aed; // violet — consolidation opportunity
+  --nav-alert-amber: #d97706;   // amber — moderate warning
+
+  // Typography
+  --nav-font-mono:  'DM Mono', 'Courier New', monospace;
+  --nav-font-body:  'Plus Jakarta Sans', -apple-system, sans-serif;
+
+  // Geometry
+  --nav-radius:     4px;
+  --nav-radius-lg:  8px;
+  --nav-shadow:     0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+  --nav-shadow-lg:  0 4px 12px rgba(0,0,0,.12), 0 2px 4px rgba(0,0,0,.08);
+}
+
+// ─── Calendar Container ─────────────────────────────────────────────────────
+.o_calendar_view,
+.o_calendar_renderer {
+  font-family: var(--nav-font-body);
+  background: var(--nav-canvas);
+
+  // Subtle grid-paper texture
+  background-image:
+    linear-gradient(var(--nav-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--nav-grid) 1px, transparent 1px);
+  background-size: 100% 32px, 32px 100%;
+  background-attachment: local;
+}
+
+// ─── Calendar Header (month/week nav) ──────────────────────────────────────
+.o_calendar_header,
+.fc-header-toolbar {
+  font-family: var(--nav-font-body);
+  font-weight: 600;
+  letter-spacing: -0.01em;
+  color: var(--nav-text);
+  border-bottom: 2px solid var(--nav-grid);
+  padding-bottom: 8px;
+
+  .fc-toolbar-title {
+    font-size: 1.125rem;
+    font-weight: 700;
+    letter-spacing: -0.025em;
+    color: var(--nav-text);
+  }
+
+  .btn,
+  .fc-button {
+    font-family: var(--nav-font-body);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    border-radius: var(--nav-radius);
+    border: 1.5px solid var(--nav-border);
+    background: var(--nav-surface);
+    color: var(--nav-text-label);
+    box-shadow: none;
+    padding: 4px 10px;
+    transition: background 0.15s, border-color 0.15s;
+
+    &:hover,
+    &.fc-button-active {
+      background: var(--nav-text);
+      border-color: var(--nav-text);
+      color: #fff;
+    }
+  }
+}
+
+// Day headers (Mon, Tue, etc.)
+.fc-col-header-cell {
+  font-family: var(--nav-font-body);
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--nav-text-muted);
+  background: var(--nav-canvas);
+  border-bottom: 1.5px solid var(--nav-grid);
+  padding: 6px 0;
+}
+
+// Day number cells
+.fc-daygrid-day-number {
+  font-family: var(--nav-font-mono);
+  font-size: 0.8rem;
+  font-weight: 400;
+  color: var(--nav-text-muted);
+  padding: 6px 8px;
+}
+
+.fc-day-today {
+  background: rgba(3, 105, 161, 0.04) !important;
+
+  .fc-daygrid-day-number {
+    color: var(--nav-confirmed);
+    font-weight: 500;
+  }
+}
+
+// ─── Event Cards ────────────────────────────────────────────────────────────
+.o_calendar_event,
+.fc-event {
+  border: none !important;
+  border-radius: var(--nav-radius) !important;
+  box-shadow: var(--nav-shadow) !important;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  overflow: hidden;
+  margin: 1px 2px !important;
+
+  // Left-border accent strip (state indicator)
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    width: 3px;
+    background: currentColor;
+    opacity: 0.6;
+  }
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--nav-shadow-lg) !important;
+    z-index: 10;
+  }
+
+  // Draggable visual cue
+  &.fc-event-dragging {
+    transform: rotate(1.5deg) scale(1.02);
+    box-shadow: 0 8px 24px rgba(0,0,0,.18) !important;
+    opacity: 0.92;
+  }
+}
+
+.fc-event-main {
+  padding: 4px 6px 4px 9px;  // extra left pad for accent strip
+}
+
+// Event title — shipment ref (monospace)
+.fc-event-title,
+.o_event_title {
+  font-family: var(--nav-font-mono) !important;
+  font-size: 0.75rem !important;
+  font-weight: 500 !important;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+// Event "time" area — repurposed for warehouse / container info
+.fc-event-time {
+  font-family: var(--nav-font-body) !important;
+  font-size: 0.65rem !important;
+  font-weight: 500 !important;
+  opacity: 0.8;
+  letter-spacing: 0.02em;
+}
+
+// ─── State Colours ──────────────────────────────────────────────────────────
+// Odoo maps Selection field values to color indices in order of appearance.
+// SHIPMENT_STATE order: draft(0), confirmed(1), tendered(2), booked(3), delivered(4), cancelled(5)
+
+// draft — slate, low-contrast background
+.o_calendar_color_0,
+.fc-event.o_calendar_color_0 {
+  background: #f1f5f9 !important;
+  color: var(--nav-draft) !important;
+  border-left: 3px solid var(--nav-draft) !important;
+}
+
+// confirmed — ocean blue
+.o_calendar_color_1,
+.fc-event.o_calendar_color_1 {
+  background: #eff6ff !important;
+  color: var(--nav-confirmed) !important;
+  border-left: 3px solid var(--nav-confirmed) !important;
+}
+
+// tendered — warm amber
+.o_calendar_color_2,
+.fc-event.o_calendar_color_2 {
+  background: #fffbeb !important;
+  color: var(--nav-tendered) !important;
+  border-left: 3px solid var(--nav-tendered) !important;
+}
+
+// booked — deep emerald
+.o_calendar_color_3,
+.fc-event.o_calendar_color_3 {
+  background: #f0fdf4 !important;
+  color: var(--nav-booked) !important;
+  border-left: 3px solid var(--nav-booked) !important;
+}
+
+// delivered — charcoal, muted
+.o_calendar_color_4,
+.fc-event.o_calendar_color_4 {
+  background: #f9fafb !important;
+  color: var(--nav-delivered) !important;
+  border-left: 3px solid var(--nav-delivered) !important;
+  opacity: 0.7;
+}
+
+// cancelled
+.o_calendar_color_5,
+.fc-event.o_calendar_color_5 {
+  background: #f9fafb !important;
+  color: #9ca3af !important;
+  border-left: 3px solid #d1d5db !important;
+  text-decoration: line-through;
+  opacity: 0.5;
+}
+
+// ─── State Legend (search panel chips) ─────────────────────────────────────
+// Color legend pills in sidebar / filter panel
+.o_cw_popover_fields_secondary .badge,
+.o_legend_item .badge {
+  font-family: var(--nav-font-body);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  border-radius: 2px;
+  padding: 2px 6px;
+}
+
+// ─── Calendar Popover (quick info on click) ─────────────────────────────────
+.o_cw_popover,
+.o_calendar_quick_info {
+  font-family: var(--nav-font-body);
+  border-radius: var(--nav-radius-lg);
+  border: 1.5px solid var(--nav-border);
+  box-shadow: var(--nav-shadow-lg);
+  max-width: 320px;
+
+  // Popover header — shipment ref in mono
+  .o_cw_popover_header,
+  .popover-header {
+    font-family: var(--nav-font-mono);
+    font-size: 0.8125rem;
+    font-weight: 500;
+    letter-spacing: 0.02em;
+    background: var(--nav-canvas);
+    border-bottom: 1px solid var(--nav-grid);
+    padding: 10px 14px;
+    color: var(--nav-text);
+  }
+
+  .o_cw_popover_body,
+  .popover-body {
+    padding: 12px 14px;
+    font-size: 0.8125rem;
+    color: var(--nav-text);
+
+    // Field labels
+    .o_field_widget label,
+    strong {
+      font-size: 0.6875rem;
+      font-weight: 600;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      color: var(--nav-text-muted);
+      display: block;
+      margin-bottom: 2px;
+    }
+
+    // Warehouse tags
+    .badge.o_tag {
+      font-family: var(--nav-font-mono);
+      font-size: 0.6875rem;
+      border-radius: 2px;
+      letter-spacing: 0.04em;
+    }
+  }
+
+  // Action buttons in popover footer
+  .o_cw_popover_footer,
+  .popover-footer {
+    border-top: 1px solid var(--nav-grid);
+    padding: 10px 14px;
+    display: flex;
+    gap: 6px;
+
+    .btn-primary {
+      font-family: var(--nav-font-body);
+      font-size: 0.8125rem;
+      font-weight: 600;
+      background: var(--nav-confirmed);
+      border-color: var(--nav-confirmed);
+      border-radius: var(--nav-radius);
+      padding: 5px 12px;
+
+      &:hover {
+        background: #075985;
+        border-color: #075985;
+      }
+    }
+
+    .btn-secondary {
+      font-family: var(--nav-font-body);
+      font-size: 0.8125rem;
+      font-weight: 500;
+      border-radius: var(--nav-radius);
+      padding: 5px 12px;
+    }
+  }
+}
+
+// ─── Consolidation Suggestion Badge ────────────────────────────────────────
+// The consolidation_suggestion field is rendered as a char in the popover.
+// Target it to make it unmistakably attention-grabbing.
+.o_cw_popover [name="consolidation_suggestion"],
+.o_cw_popover_body [name="consolidation_suggestion"] {
+  background: #f5f3ff;
+  border: 1.5px solid #7c3aed;
+  border-radius: var(--nav-radius);
+  color: #5b21b6;
+  font-family: var(--nav-font-body);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 6px 10px;
+  margin-top: 8px;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  &::before {
+    content: '⬡';   // hexagon — consolidation symbol
+    font-size: 1rem;
+    flex-shrink: 0;
+  }
+}
+
+// Freight ETA display — monospace, ocean blue
+.o_cw_popover [name="freight_eta"],
+.o_cw_popover [name="freight_status"] {
+  font-family: var(--nav-font-mono);
+  font-size: 0.8rem;
+  color: var(--nav-confirmed);
+  font-weight: 500;
+}
+
+// ─── Multi-day event span (transit window) ─────────────────────────────────
+// When event spans target_ship_date → target_delivery_date
+.fc-daygrid-block-event {
+  border-radius: var(--nav-radius) !important;
+
+  &.fc-event-start {
+    border-radius: var(--nav-radius) 0 0 var(--nav-radius) !important;
+  }
+
+  &.fc-event-end {
+    border-radius: 0 var(--nav-radius) var(--nav-radius) 0 !important;
+  }
+}
+
+// ─── "More" overflow link ───────────────────────────────────────────────────
+.fc-daygrid-more-link {
+  font-family: var(--nav-font-body);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  color: var(--nav-confirmed);
+  letter-spacing: 0.02em;
+}
+
+// ─── Reschedule Wizard (consolidation dialog) ───────────────────────────────
+.modal-dialog .o_form_view[model="roq.reschedule.wizard"] {
+  .modal-header {
+    font-family: var(--nav-font-body);
+    font-weight: 700;
+    font-size: 1rem;
+    border-bottom: 2px solid var(--nav-grid);
+  }
+
+  // Warning alert banner
+  .alert-warning {
+    border-radius: var(--nav-radius);
+    border-left: 4px solid #d97706;
+    background: #fffbeb;
+    border-top: none;
+    border-right: none;
+    border-bottom: none;
+    font-family: var(--nav-font-body);
+    font-size: 0.875rem;
+    color: #92400e;
+    padding: 10px 14px;
+  }
+
+  // Many2many tags for candidate groups — mono refs
+  .o_field_many2many_tags .badge {
+    font-family: var(--nav-font-mono);
+    font-size: 0.75rem;
+    border-radius: 2px;
+    letter-spacing: 0.02em;
+  }
+
+  .modal-footer {
+    .btn-primary {
+      background: var(--nav-booked);
+      border-color: var(--nav-booked);
+      font-weight: 600;
+
+      &:hover {
+        background: #065f46;
+        border-color: #065f46;
+      }
+    }
+  }
+}
+
+// ─── Warehouse Config (capacity group on warehouse form) ────────────────────
+.o_form_view[model="stock.warehouse"] {
+  .o_group[string="ROQ Receiving Capacity"] {
+    border: 1.5px solid #dbeafe;
+    border-radius: var(--nav-radius-lg);
+    background: #f0f9ff;
+    padding: 12px 16px;
+    margin-top: 16px;
+
+    &::before {
+      content: 'ROQ Receiving Capacity';
+      display: block;
+      font-family: var(--nav-font-body);
+      font-size: 0.6875rem;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--nav-confirmed);
+      margin-bottom: 12px;
+    }
+
+    // Hide the default Odoo group title (we show our own)
+    .o_inner_group > caption {
+      display: none;
+    }
+
+    .o_field_radio .o_radio_item label {
+      font-family: var(--nav-font-body);
+      font-size: 0.875rem;
+      font-weight: 500;
+    }
+
+    .o_field_float input {
+      font-family: var(--nav-font-mono);
+      font-size: 0.875rem;
+      text-align: right;
+      letter-spacing: 0.02em;
+    }
+  }
+}
+
+// ─── Search panel (sidebar when active) ────────────────────────────────────
+.o_search_panel {
+  font-family: var(--nav-font-body);
+  border-right: 1.5px solid var(--nav-grid);
+  background: var(--nav-canvas);
+
+  .o_search_panel_label {
+    font-size: 0.75rem;
+    font-weight: 600;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: var(--nav-text-muted);
+  }
+
+  .o_search_panel_filter_value,
+  .o_search_panel_category_value {
+    font-size: 0.8125rem;
+    color: var(--nav-text-label);
+
+    &.active {
+      color: var(--nav-confirmed);
+      font-weight: 600;
+    }
+  }
+}
+
+// ─── View switcher (Calendar / List / Form) ─────────────────────────────────
+.o_cp_switch_buttons .btn {
+  font-family: var(--nav-font-body);
+  font-size: 0.75rem;
+  font-weight: 500;
+}
+
+// ─── Print / Export tweaks ──────────────────────────────────────────────────
+@media print {
+  .o_calendar_view {
+    background-image: none;
+    background: white;
+  }
+
+  .o_calendar_event,
+  .fc-event {
+    box-shadow: none !important;
+    border: 1px solid currentColor !important;
+  }
+}
