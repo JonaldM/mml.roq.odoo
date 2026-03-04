@@ -142,8 +142,7 @@ class RoqShipmentGroup(models.Model):
         if date_changing and old_dates:
             new_delivery = vals['target_delivery_date']
             if isinstance(new_delivery, str):
-                from odoo.fields import Date
-                new_delivery = Date.from_string(new_delivery)
+                new_delivery = fields.Date.from_string(new_delivery)
 
             for rec in self:
                 if rec.id not in old_dates:
