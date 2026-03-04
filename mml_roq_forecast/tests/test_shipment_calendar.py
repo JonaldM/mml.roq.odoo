@@ -1,3 +1,4 @@
+from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 from odoo.tests.common import TransactionCase
@@ -53,7 +54,6 @@ class TestFreightStatusFields(TransactionCase):
 
     def test_freight_fields_populated_when_booking_exists(self):
         """Real FreightService returns booking data."""
-        from datetime import datetime
         eta = datetime(2026, 7, 1, 10, 0, 0)
         mock_svc = MagicMock()
         mock_svc.get_booking_status.return_value = {
