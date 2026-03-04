@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo>
+
+  <record id="stock_warehouse_roq_capacity_form" model="ir.ui.view">
+    <field name="name">stock.warehouse.roq.capacity</field>
+    <field name="model">stock.warehouse</field>
+    <field name="inherit_id" ref="stock.view_warehouse"/>
+    <field name="arch" type="xml">
+      <xpath expr="//sheet" position="inside">
+        <group string="ROQ Receiving Capacity"
+               help="Configure maximum inbound volume per week for shipment calendar load warnings.">
+          <field name="roq_capacity_unit" string="Measure in"
+                 widget="radio" options="{'horizontal': true}"/>
+          <field name="roq_weekly_capacity_cbm"
+                 invisible="roq_capacity_unit != 'cbm'"
+                 string="Max CBM / week"/>
+          <field name="roq_weekly_capacity_teu"
+                 invisible="roq_capacity_unit != 'teu'"
+                 string="Max TEU / week"/>
+        </group>
+      </xpath>
+    </field>
+  </record>
+
+</odoo>
