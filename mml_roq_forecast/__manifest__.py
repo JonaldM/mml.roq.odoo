@@ -31,6 +31,11 @@
         'reports/supplier_order_schedule.xml',
         'reports/supplier_order_schedule_template.xml',
     ],
+    'assets': {
+        'web.assets_backend': [
+            'mml_roq_forecast/static/src/scss/shipment_calendar.scss',
+        ],
+    },
     'external_dependencies': {
         'python': ['numpy', 'scipy'],
     },
