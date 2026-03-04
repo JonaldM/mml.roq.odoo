@@ -1,7 +1,7 @@
 from odoo.tests.common import TransactionCase
 
 
-class TestWarehouseCapacity(TransactionCase):
+class TestWarehouseReceivingCapacityFields(TransactionCase):
 
     def setUp(self):
         super().setUp()
@@ -19,6 +19,8 @@ class TestWarehouseCapacity(TransactionCase):
 
     def test_set_teu_capacity(self):
         self.warehouse.roq_weekly_capacity_teu = 4.0
-        self.warehouse.roq_capacity_unit = 'teu'
         self.assertEqual(self.warehouse.roq_weekly_capacity_teu, 4.0)
+
+    def test_set_capacity_unit_to_teu(self):
+        self.warehouse.roq_capacity_unit = 'teu'
         self.assertEqual(self.warehouse.roq_capacity_unit, 'teu')
