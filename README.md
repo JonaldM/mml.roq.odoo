@@ -131,6 +131,74 @@ Port seed records use `noupdate="1"` — manual edits in Odoo survive module upg
 
 ---
 
+## Shipment Calendar
+
+**ROQ Forecast → Shipment Calendar**
+
+A planning calendar showing all `roq.shipment.group` records by ship date (ETD) through to delivery date. Designed for the procurement planner to space out inbound shipments and avoid saturating a receiving warehouse in a single week.
+
+### Calendar Layout
+
+Each shipment group renders as a card spanning from `target_ship_date` to `target_delivery_date`. Cards are colour-coded by state:
+
+| Colour | State |
+|---|---|
+| Slate | Draft |
+| Ocean blue | Confirmed |
+| Amber | Tendered |
+| Emerald | Booked |
+| Rose | Delivered |
+| Neutral | Cancelled |
+
+Cards display origin port, container type, destination warehouse abbreviations (e.g. HLZ / CHC), and live freight ETA when `mml_freight` is installed.
+
+### Drag-and-Drop Rescheduling
+
+Dragging a card shifts `target_delivery_date`. The module automatically:
+- Shifts `target_ship_date` by the same delta to preserve the transit window
+- Re-evaluates `oos_risk_flag` on all supplier lines
+- Posts a chatter message recording the date change ("pushed out / pulled forward by N days")
+- **Only draft and confirmed groups are draggable.** Tendered, booked, delivered, and cancelled groups are locked.
+
+For shifts exceeding the configurable threshold (default 5 days), the system checks for nearby same-origin groups within the consolidation window (default 21 days). If any are found, it sets a `consolidation_suggestion` badge on the group and surfaces a wizard offering the option to consolidate or keep separate.
+
+### Warehouse Receiving Capacity
+
+Set a weekly inbound capacity limit per warehouse under **Inventory → Configuration → Warehouses → ROQ Receiving Capacity**. Choose either CBM or TEU as the limit unit.
+
+The `roq.warehouse.week.load` model calculates arriving volume per warehouse per week and returns a status:
+
+| Status | Threshold |
+|---|---|
+| Green | < 70 % of capacity |
+| Amber | 70 – 90 % of capacity |
+| Red | ≥ 90 % of capacity |
+| None | No capacity configured |
+
+### Filters
+
+The calendar ships with four default search filters:
+
+| Filter | Domain |
+|---|---|
+| Draft | state = draft |
+| Confirmed | state = confirmed |
+| In Transit | state ∈ {tendered, booked} |
+| Active (default) | state ∉ {delivered, cancelled} |
+
+### Live Freight Status
+
+When `mml_freight` is installed, each group's popover shows `freight_eta`, `freight_status`, and `freight_last_update` pulled live via the service locator. When `mml_freight` is not installed, these fields are empty — the calendar degrades gracefully.
+
+### Calendar Configuration
+
+| Parameter | Key | Default |
+|---|---|---|
+| Consolidation window | `roq.calendar.consolidation_window_days` | 21 |
+| Reschedule threshold (days before proximity check runs) | `roq.calendar.reschedule_threshold_days` | 5 |
+
+---
+
 ## Order Dashboard & Draft PO Raise
 
 **ROQ Forecast → Order Dashboard**
@@ -181,6 +249,11 @@ odoo-bin --test-enable -d <db> --test-tags /mml_roq_forecast:TestAbcClassifier
 odoo-bin --test-enable -d <db> --test-tags /mml_roq_forecast:TestMoqEnforcer
 odoo-bin --test-enable -d <db> --test-tags /mml_roq_forecast:TestContainerFitter
 odoo-bin --test-enable -d <db> --test-tags /mml_roq_forecast:TestRaisePoWizard
+odoo-bin --test-enable -d <db> --test-tags /mml_roq_forecast:TestWarehouseReceivingCapacityFields
+odoo-bin --test-enable -d <db> --test-tags /mml_roq_forecast:TestFreightStatusFields
+odoo-bin --test-enable -d <db> --test-tags /mml_roq_forecast:TestRescheduleWrite
+odoo-bin --test-enable -d <db> --test-tags /mml_roq_forecast:TestConsolidationSuggestion
+odoo-bin --test-enable -d <db> --test-tags /mml_roq_forecast:TestWarehouseWeekLoad
 
 # With log output
 odoo-bin --test-enable -d <db> --test-tags mml_roq_forecast --log-level=test
@@ -220,6 +293,8 @@ odoo-bin --test-enable -d <db> --test-tags mml_roq_forecast --log-level=test
 | `docs/plans/2026-03-01-sprint-4-forward-plan-freight.md` | Forward plan + DSV freight bridge sprint |
 | `docs/plans/2026-03-02-order-dashboard-po-raise-design.md` | Order Dashboard + Draft PO Raise design |
 | `docs/plans/2026-03-02-order-dashboard-po-raise.md` | Order Dashboard + Draft PO Raise implementation plan |
+| `docs/plans/2026-03-04-shipment-calendar-design.md` | Shipment Calendar design |
+| `docs/plans/2026-03-04-shipment-calendar-implementation.md` | Shipment Calendar implementation plan |
 
 
 ---
