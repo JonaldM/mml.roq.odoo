@@ -111,10 +111,12 @@ class RoqShipmentGroup(models.Model):
         help='Alias for origin_port used by consolidation grouping logic.',
     )
 
-    @api.depends('state')
+    @api.depends()
     def _compute_freight_status(self):
         """Fetch live freight booking status via service locator.
-        Returns empty fields if mml_freight is not installed (NullService pattern)."""
+        Returns empty fields if mml_freight is not installed (NullService pattern).
+        Empty @api.depends() ensures the result is never served from cache — each
+        read hits the service locator so the calendar always shows live freight data."""
         svc = self.env['mml.registry'].service('freight')
         for rec in self:
             result = svc.get_booking_status(rec.id)
@@ -194,11 +196,7 @@ class RoqShipmentGroup(models.Model):
 
                 # Re-evaluate OOS risk flags on line records
                 for line in rec.line_ids:
-                    if hasattr(line, 'projected_inventory_at_delivery'):
-                        line.oos_risk_flag = (
-                            line.projected_inventory_at_delivery is not None
-                            and line.projected_inventory_at_delivery < 0
-                        )
+                    line.oos_risk_flag = line.projected_inventory_at_delivery < 0
 
                 # Chatter audit trail
                 delta_days = delta.days
@@ -212,7 +210,13 @@ class RoqShipmentGroup(models.Model):
                     message_type='notification',
                 )
 
-                # Consolidation proximity check for significant shifts
+                # Consolidation proximity check for significant shifts.
+                # NOTE: Assigning rec.consolidation_suggestion here triggers a second
+                # ORM write() call. It is safe because the nested write() has
+                # vals = {'consolidation_suggestion': ...} which does NOT contain
+                # 'target_delivery_date', so date_changing=False and this block
+                # is not re-entered. Do NOT add a second date-watching key to vals
+                # without auditing this path to avoid a recursive loop.
                 threshold = int(
                     self.env['ir.config_parameter'].sudo().get_param(
                         'roq.calendar.reschedule_threshold_days', default=5

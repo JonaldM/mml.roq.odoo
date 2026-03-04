@@ -1,4 +1,4 @@
-from odoo import fields, models
+from odoo import exceptions, fields, models
 
 
 class RoqRescheduleWizard(models.TransientModel):
@@ -36,9 +36,18 @@ class RoqRescheduleWizard(models.TransientModel):
             )
 
     def action_consolidate(self):
-        """Run consolidation engine on source + candidates."""
-        all_groups = self.source_group_id | self.candidate_group_ids
+        """Run consolidation engine on source + candidates.
+        Requires the roq_consolidation service to be registered (provided by a
+        future bridge module). Until then, instructs the planner to consolidate
+        manually from the Shipment Groups list view."""
         svc = self.env['mml.registry'].service('roq_consolidation')
+        if not svc.available():
+            raise exceptions.UserError(
+                'Automatic consolidation is not yet available. '
+                'To consolidate, open the Shipment Groups list, select the '
+                'groups shown below, and merge them manually.'
+            )
+        all_groups = self.source_group_id | self.candidate_group_ids
         svc.consolidate(all_groups.ids)
         return {'type': 'ir.actions.act_window_close'}
 
