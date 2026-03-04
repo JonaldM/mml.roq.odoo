@@ -1,3 +1,5 @@
+from datetime import timedelta
+
 from odoo import models, fields, api, exceptions
 
 # Contract-specified container type values — do NOT change these keys
@@ -83,6 +85,11 @@ class RoqShipmentGroup(models.Model):
         compute='_compute_freight_status',
         store=False,
     )
+    consolidation_suggestion = fields.Char(
+        string='Consolidation Suggestion',
+        help='Set when a nearby same-origin group is detected after rescheduling. '
+             'Clear manually once actioned.',
+    )
 
     # ROQ internal fields
     fill_percentage = fields.Float(string='Fill %', digits=(5, 1))
@@ -119,6 +126,34 @@ class RoqShipmentGroup(models.Model):
                 rec.freight_eta = False
                 rec.freight_status = False
                 rec.freight_last_update = False
+
+    def _find_consolidation_candidates(self):
+        """Return nearby draft/confirmed groups from same FOB port within config window.
+
+        Queries for groups with the same origin_port in DRAGGABLE_STATES whose
+        target_delivery_date falls within ±N days of this record's delivery date.
+        N is configurable via ir.config_parameter 'roq.calendar.consolidation_window_days'.
+        Returns an empty recordset if this group is not in a draggable state.
+        """
+        self.ensure_one()
+        if self.state not in DRAGGABLE_STATES:
+            return self.env['roq.shipment.group']
+
+        window = int(
+            self.env['ir.config_parameter'].sudo().get_param(
+                'roq.calendar.consolidation_window_days', default=21
+            )
+        )
+        date_from = self.target_delivery_date - timedelta(days=window)
+        date_to = self.target_delivery_date + timedelta(days=window)
+
+        return self.search([
+            ('id', '!=', self.id),
+            ('origin_port', '=', self.origin_port),
+            ('state', 'in', list(DRAGGABLE_STATES)),
+            ('target_delivery_date', '>=', date_from),
+            ('target_delivery_date', '<=', date_to),
+        ])
 
     def write(self, vals):
         """Override to detect delivery date changes on draggable groups.
@@ -176,6 +211,21 @@ class RoqShipmentGroup(models.Model):
                     ),
                     message_type='notification',
                 )
+
+                # Consolidation proximity check for significant shifts
+                threshold = int(
+                    self.env['ir.config_parameter'].sudo().get_param(
+                        'roq.calendar.reschedule_threshold_days', default=5
+                    )
+                )
+                if abs(delta.days) > threshold:
+                    candidates = rec._find_consolidation_candidates()
+                    if candidates:
+                        rec.consolidation_suggestion = ', '.join(
+                            candidates.mapped('name')
+                        )
+                    else:
+                        rec.consolidation_suggestion = False
 
         return result
 

@@ -109,3 +109,49 @@ class TestRescheduleWrite(TransactionCase):
         original_ship = self.group.target_ship_date
         self.group.write({'target_delivery_date': date(2026, 7, 15)})
         self.assertEqual(self.group.target_ship_date, original_ship)
+
+
+class TestConsolidationSuggestion(TransactionCase):
+
+    def setUp(self):
+        super().setUp()
+        self.group_a = self.env['roq.shipment.group'].create({
+            'origin_port': 'CNSHA',
+            'destination_port': 'NZAKL',
+            'container_type': '40HQ',
+            'target_ship_date': '2026-06-01',
+            'target_delivery_date': '2026-07-01',
+            'state': 'draft',
+        })
+        self.group_b = self.env['roq.shipment.group'].create({
+            'origin_port': 'CNSHA',
+            'destination_port': 'NZAKL',
+            'container_type': '40HQ',
+            'target_ship_date': '2026-06-10',
+            'target_delivery_date': '2026-07-10',
+            'state': 'draft',
+        })
+
+    def test_no_suggestion_when_same_port_but_far_apart(self):
+        """Groups 60 days apart — no suggestion."""
+        self.assertFalse(self.group_a._find_consolidation_candidates())
+
+    def test_suggestion_when_groups_within_window(self):
+        """group_a delivery 2026-07-08 is within 21 days of group_b delivery 2026-07-10."""
+        self.group_a.target_delivery_date = date(2026, 7, 8)
+        candidates = self.group_a._find_consolidation_candidates()
+        self.assertIn(self.group_b, candidates)
+
+    def test_no_suggestion_for_different_origin_port(self):
+        """Groups near in time but different FOB port — no suggestion."""
+        self.group_b.origin_port = 'CNNGB'
+        self.group_a.target_delivery_date = date(2026, 7, 8)
+        candidates = self.group_a._find_consolidation_candidates()
+        self.assertFalse(candidates)
+
+    def test_no_suggestion_for_locked_states(self):
+        """Booked groups are not consolidation candidates."""
+        self.group_b.state = 'booked'
+        self.group_a.target_delivery_date = date(2026, 7, 8)
+        candidates = self.group_a._find_consolidation_candidates()
+        self.assertFalse(candidates)
