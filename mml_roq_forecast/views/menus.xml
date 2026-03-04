@@ -23,6 +23,12 @@
               action="action_roq_shipment_group"
               sequence="20"/>
 
+    <menuitem id="menu_roq_shipment_calendar"
+              name="Shipment Calendar"
+              parent="menu_roq_root"
+              action="action_roq_shipment_calendar"
+              sequence="25"/>
+
     <menuitem id="menu_roq_config"
               name="Configuration"
               parent="menu_roq_root"
