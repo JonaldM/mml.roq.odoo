@@ -7,7 +7,7 @@ MML Consumer Products Ltd is a New Zealand-based distribution company managing ~
 We currently run the ROQ (Reorder Quantity) calculation via an external Python-generated Excel spreadsheet. This project replaces that with a native Odoo 19 module that adds multi-warehouse support, ABCD tiering, multi-supplier container consolidation, a 12-month forward procurement plan, and integration with our DSV freight forwarding module.
 
 - **Target Odoo version:** 19 (self-hosted)
-- **Builder:** Claude Code + Jono (prototyping), Harold (implementation/integration)
+- **Builder:** Claude Code + Jono
 - **Module technical name:** `mml_roq_forecast`
 - **Dependency:** `mml_freight_forwarding` (DSV integration — may be built concurrently, see separate sprint spec)
 
@@ -42,7 +42,7 @@ Three logical layers, each building on the one below:
 ### 1.1 Data Source
 
 - **Sales history:** `sale.order.line` from Odoo, filtered to confirmed/done orders.
-  - Open question for Harold: confirm whether `sale.order.line` or `stock.move` (delivery-confirmed) is the better source. `sale.order.line` captures demand at time of order; `stock.move` captures actual fulfilment. For forecasting purposes, order-based demand is generally preferred as it reflects true demand including any unfulfilled/backordered demand that `stock.move` would miss.
+  - Open question: confirm whether `sale.order.line` or `stock.move` (delivery-confirmed) is the better source. `sale.order.line` captures demand at time of order; `stock.move` captures actual fulfilment. For forecasting purposes, order-based demand is generally preferred as it reflects true demand including any unfulfilled/backordered demand that `stock.move` would miss.
 - **Lookback period:** 156 weeks (3 years), configurable.
 - **Granularity:** Weekly demand per SKU per warehouse.
 - **Warehouse allocation:** Sales are attributed to the warehouse that fulfilled them (source warehouse on the `stock.picking` / delivery order). All products are stocked at all warehouses.

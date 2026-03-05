@@ -10,7 +10,7 @@
 
 ---
 
-## Pre-Conditions (Harold completes before Sprint 0 begins)
+## Pre-Conditions
 
 ```
 ☐ Uninstall roq_forecast, custom_purchase_containers, freight_tender_email
@@ -201,7 +201,7 @@ Sprint 0 → Sprint 1 → Sprint 2 → Sprint 3 → Sprint 4
 
 ---
 
-## Notes for Harold (Implementation)
+## Implementation Notes
 
 1. **Odoo dev setup:** Run with `--dev=all` during development to avoid manual module updates
 2. **Test database:** Use a separate dev database with real sales history data for validation

@@ -13,7 +13,7 @@
 | `custom_purchase_containers` | `purchase.order.container.line` | Uninstall. Replaced by container logic in new module. |
 | `freight_tender_email` | `freight.tender.wizard` | Uninstall. Replaced by API-based freight tender model. |
 
-**Pre-build step:** Harold to uninstall these three modules and confirm no other modules depend on them.
+**Pre-build step:** Uninstall these three modules and confirm no other modules depend on them.
 
 ---
 
@@ -37,7 +37,7 @@ Extend via `_inherit`. No schema replacement, just additional fields.
 | `pack_size` | Integer | 1 | Units per carton/pack |
 | `is_roq_managed` | Boolean | True | Include in ROQ calculations |
 
-> **Check with Harold:** Do `cbm_per_unit` and `pack_size` already exist under different field names? Also check if `product.packaging` is being used for pack sizes — if so, we read from that instead of adding a new field.
+> **Verify:** Do `cbm_per_unit` and `pack_size` already exist under different field names? Also check if `product.packaging` is being used for pack sizes — if so, we read from that instead of adding a new field.
 
 #### res.partner (supplier)
 
@@ -53,7 +53,7 @@ Extend via `_inherit`. No schema replacement, just additional fields.
 | `lead_time_std_dev` | Float | — | Std dev of actual lead times (computed) |
 | `lead_time_on_time_pct` | Float | — | % deliveries within tolerance (computed) |
 
-> **Check with Harold:** Does `fob_port` already exist from prior DSV work?
+> **Verify:** Does `fob_port` already exist from prior DSV work?
 
 #### stock.warehouse
 

@@ -1443,7 +1443,7 @@ git commit -m "feat(roq): wire MOQ enforcement into pipeline; add settings toggl
 - [ ] Safety stock breach (amber) appears when projected inventory < safety stock
 - [ ] Overstock warning appears when weeks cover > 52
 - [ ] Missing CBM/pack size flag appears when product data incomplete
-- [ ] Weekly cron set to `active=False` — Harold to enable manually after validation
+- [ ] Weekly cron set to `active=False` — enable manually after validation
 - [ ] MOQ enforcement: total across warehouses < MOQ → uplift applied to lowest-cover warehouse
 - [ ] MOQ enforcement: `moq_flag` set on all lines for a SKU when below MOQ
 - [ ] MOQ enforcement: `supplier_moq = 0` → no enforcement, no flag

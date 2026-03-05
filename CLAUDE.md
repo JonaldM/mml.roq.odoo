@@ -18,7 +18,7 @@ Two new Odoo 19 modules replacing an external Excel-based ROQ (Reorder Quantity)
 
 ---
 
-## Pre-Build Checklist (Harold to complete before writing code)
+## Pre-Build Checklist
 
 | # | Action | Status |
 |---|---|---|
@@ -137,7 +137,7 @@ mml_odoo/
 | Demand history | `sale.order.line` | `product_id`, `product_uom_qty`, `order_id.date_order` |
 | Current SOH | `stock.quant` | `product_id`, `location_id`, `quantity` |
 | Inbound PO qty | `purchase.order.line` | `product_id`, `product_qty`, `warehouse_dest_id` |
-| Pack size | `product.template.pack_size` (new) or `product.packaging` | Check with Harold |
+| Pack size | `product.template.pack_size` (new) or `product.packaging` | Verify in Odoo |
 | CBM per unit | `product.template.cbm_per_unit` (new) | Check if already exists |
 | Supplier lead time | `res.partner.supplier_lead_time_days` (new, nullable) | Falls back to system setting |
 | FOB port | `res.partner.fob_port` (new) | Check if already exists |
