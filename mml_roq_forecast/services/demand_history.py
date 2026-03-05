@@ -34,6 +34,7 @@ class DemandHistoryService:
             ('order_id.state', 'in', ['sale', 'done']),
             ('order_id.warehouse_id', '=', warehouse.id),
             ('order_id.date_order', '>=', start_date.strftime('%Y-%m-%d')),
+            ('company_id', '=', self.env.company.id),
         ])
 
         for line in lines:
@@ -63,6 +64,7 @@ class DemandHistoryService:
             ('product_id.product_tmpl_id', '=', product_template.id),
             ('order_id.state', 'in', ['sale', 'done']),
             ('order_id.date_order', '>=', start_date.strftime('%Y-%m-%d')),
+            ('company_id', '=', self.env.company.id),
         ])
 
         return sum(
@@ -84,6 +86,7 @@ class DemandHistoryService:
             ('order_id.state', 'in', ['sale', 'done']),
             ('order_id.warehouse_id', '=', warehouse.id),
             ('order_id.date_order', '>=', start_date.strftime('%Y-%m-%d')),
+            ('company_id', '=', self.env.company.id),
         ])
 
         return sum(
