@@ -83,11 +83,30 @@ class RoqRaisePoWizard(models.TransientModel):
                 'partner_id': self.supplier_id.id,
                 'picking_type_id': warehouse.in_type_id.id,
                 'order_line': order_lines,
+                'origin': self.run_id.name,
             }
             if sg_line and sg_line.group_id:
                 po_vals['shipment_group_id'] = sg_line.group_id.id
 
-            po = self.env['purchase.order'].sudo().create(po_vals)
+            # Duplicate guard — reject if an existing draft PO exists for this run/supplier/warehouse
+            existing = self.env['purchase.order'].search([
+                ('state', '=', 'draft'),
+                ('partner_id', '=', self.supplier_id.id),
+                ('picking_type_id', '=', warehouse.in_type_id.id),
+                ('origin', '=', self.run_id.name),
+            ], limit=1)
+            if existing:
+                raise exceptions.UserError(
+                    _("A draft PO already exists for supplier '%s' at warehouse '%s' "
+                      "for this ROQ run (%s). Cancel or delete it before raising a new one.")
+                    % (self.supplier_id.name, warehouse.name, self.run_id.name)
+                )
+
+            if not self.env.user.has_group('purchase.group_purchase_user'):
+                raise exceptions.UserError(
+                    _("You need Purchase User access to raise purchase orders.")
+                )
+            po = self.env['purchase.order'].create(po_vals)
             po_ids.append(po.id)
             _logger.info(
                 'ROQ: raised draft PO %s for supplier=%s warehouse=%s (%d lines)',
