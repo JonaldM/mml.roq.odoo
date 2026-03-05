@@ -78,8 +78,33 @@ class RoqForecastRun(models.Model):
                 "ROQ: ir.sequence with code 'roq.forecast.run' not found — "
                 "falling back to date-based reference. Install sequence data to fix."
             )
-        run = self.create({})
-        run.action_run()
+        try:
+            run = self.create({})
+            run.action_run()
+        except Exception as exc:
+            _logger.exception('ROQ weekly cron failed')
+            self._send_cron_alert(
+                'mml_roq_forecast',
+                'Weekly ROQ forecast run failed',
+                str(exc),
+            )
+            raise
+
+    def _send_cron_alert(self, module_name: str, subject: str, body: str) -> None:
+        """Send an email alert when a scheduled action fails."""
+        alert_email = self.env['ir.config_parameter'].sudo().get_param(
+            'mml.cron_alert_email', False
+        )
+        if not alert_email:
+            return
+        try:
+            self.env['mail.mail'].sudo().create({
+                'subject': '[MML ALERT] %s: %s' % (module_name, subject),
+                'body_html': '<pre>%s</pre>' % body,
+                'email_to': alert_email,
+            }).send()
+        except Exception:
+            _logger.exception('Failed to send cron alert email for %s', module_name)
 
     def action_run(self):
         """User-triggered or cron-triggered ROQ run."""
