@@ -4,7 +4,7 @@
         <field name="name">roq.forecast.run.tree</field>
         <field name="model">roq.forecast.run</field>
         <field name="arch" type="xml">
-            <tree>
+            <list>
                 <field name="name"/>
                 <field name="run_date"/>
                 <field name="status" widget="badge"
@@ -15,7 +15,7 @@
                 <field name="total_skus_reorder"/>
                 <field name="total_skus_oos_risk"
                        decoration-danger="total_skus_oos_risk &gt; 0"/>
-            </tree>
+            </list>
         </field>
     </record>
 
@@ -53,7 +53,7 @@
                     <notebook>
                         <page string="Results">
                             <field name="line_ids">
-                                <tree decoration-danger="notes != False and 'REAL OOS' in notes"
+                                <list decoration-danger="notes != False and 'REAL OOS' in notes"
                                       decoration-warning="notes != False and 'Safety Stock' in notes"
                                       decoration-muted="abc_tier == 'D'">
                                     <field name="supplier_id"/>
@@ -72,7 +72,7 @@
                                     <field name="projected_inventory_at_delivery"/>
                                     <field name="weeks_of_cover_at_delivery"/>
                                     <field name="notes"/>
-                                </tree>
+                                </list>
                             </field>
                         </page>
                         <page string="Run Log">

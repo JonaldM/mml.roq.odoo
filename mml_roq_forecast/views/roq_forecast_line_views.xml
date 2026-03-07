@@ -4,7 +4,7 @@
         <field name="name">roq.forecast.line.tree</field>
         <field name="model">roq.forecast.line</field>
         <field name="arch" type="xml">
-            <tree decoration-danger="notes != False and 'REAL OOS' in notes"
+            <list decoration-danger="notes != False and 'REAL OOS' in notes"
                   decoration-warning="notes != False and 'Safety Stock' in notes or moq_flag == True and moq_uplift_qty &gt; 0"
                   decoration-muted="abc_tier == 'D'">
                 <field name="run_id"/>
@@ -32,7 +32,7 @@
                        decoration-warning="moq_uplift_qty &gt; 0"/>
                 <field name="moq_flag" optional="show" widget="boolean" readonly="1"/>
                 <field name="notes"/>
-            </tree>
+            </list>
         </field>
     </record>
 

@@ -39,7 +39,7 @@
                             <field name="line_ids"
                                    domain="[('abc_tier', '!=', 'D')]"
                                    readonly="1">
-                                <tree default_order="weeks_of_cover_at_delivery asc"
+                                <list default_order="weeks_of_cover_at_delivery asc"
                                       decoration-danger="projected_inventory_at_delivery &lt; 0"
                                       decoration-warning="weeks_of_cover_at_delivery &lt; 8 and projected_inventory_at_delivery &gt;= 0">
                                     <field name="abc_tier" widget="badge"
@@ -56,7 +56,7 @@
                                     <field name="container_type" optional="show"/>
                                     <field name="moq_flag" widget="boolean" optional="show" string="MOQ"/>
                                     <field name="notes"/>
-                                </tree>
+                                </list>
                             </field>
                         </page>
 
@@ -68,7 +68,7 @@
                                 The PO column shows the linked draft PO once raised.
                             </p>
                             <field name="supplier_order_line_ids" readonly="1">
-                                <tree decoration-danger="oos_risk_flag == True">
+                                <list decoration-danger="oos_risk_flag == True">
                                     <field name="supplier_id" readonly="1"/>
                                     <field name="product_count" string="SKUs" readonly="1"/>
                                     <field name="cbm" string="CBM" readonly="1"/>
@@ -82,7 +82,7 @@
                                             icon="fa-shopping-cart"
                                             class="btn-primary btn-sm"
                                             invisible="purchase_order_id != False"/>
-                                </tree>
+                                </list>
                             </field>
                         </page>
                     </notebook>

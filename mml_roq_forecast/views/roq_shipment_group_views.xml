@@ -52,7 +52,7 @@
         <field name="name">roq.shipment.group.tree</field>
         <field name="model">roq.shipment.group</field>
         <field name="arch" type="xml">
-            <tree>
+            <list>
                 <field name="name"/>
                 <field name="fob_port"/>
                 <field name="target_ship_date"/>
@@ -65,7 +65,7 @@
                        decoration-success="state in ('booked', 'delivered')"
                        decoration-warning="state == 'tendered'"
                        decoration-danger="state == 'cancelled'"/>
-            </tree>
+            </list>
         </field>
     </record>
 
@@ -109,7 +109,7 @@
                     <notebook>
                         <page string="Suppliers">
                             <field name="line_ids">
-                                <tree editable="bottom">
+                                <list editable="bottom">
                                     <field name="supplier_id"/>
                                     <field name="cbm"/>
                                     <field name="product_count"/>
@@ -120,15 +120,15 @@
                                     <field name="free_days_at_origin" optional="hide"/>
                                     <field name="original_ship_date"/>
                                     <field name="purchase_order_id"/>
-                                </tree>
+                                </list>
                             </field>
                         </page>
                         <page string="Warehouses">
                             <field name="destination_warehouse_ids" widget="many2many_list">
-                                <tree>
+                                <list>
                                     <field name="name"/>
                                     <field name="code"/>
-                                </tree>
+                                </list>
                             </field>
                         </page>
                         <page string="Notes">
