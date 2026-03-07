@@ -78,6 +78,17 @@ class RoqForecastRun(models.Model):
                 "ROQ: ir.sequence with code 'roq.forecast.run' not found — "
                 "falling back to date-based reference. Install sequence data to fix."
             )
+        # Guard against concurrent runs: if a run is already in 'running' state,
+        # a previous cron tick or worker is still executing. Skip to avoid
+        # parallel pipeline executions that would corrupt forecast line results.
+        stuck = self.search([('status', '=', 'running')], limit=1)
+        if stuck:
+            _logger.warning(
+                'ROQ cron skipped: run %s is still in running state. '
+                'If this persists, set status to error manually.', stuck.id,
+            )
+            return
+
         try:
             run = self.create({})
             run.action_run()

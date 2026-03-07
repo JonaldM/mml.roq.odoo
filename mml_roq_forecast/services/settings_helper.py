@@ -38,7 +38,14 @@ class SettingsHelper:
             return default
         if isinstance(default, bool):
             return val.lower() in ('1', 'true', 'yes')  # safe string→bool conversion
-        return type(default)(val)
+        try:
+            return type(default)(val)
+        except (ValueError, TypeError):
+            _logger.warning(
+                "ROQ config param 'roq.%s' has invalid value %r — using default %r",
+                key, val, default,
+            )
+            return default
 
     def _override_active(self, supplier):
         """Returns True if supplier override is active (not expired)."""

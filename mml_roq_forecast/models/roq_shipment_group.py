@@ -235,28 +235,17 @@ class RoqShipmentGroup(models.Model):
 
     def action_confirm(self):
         """
-        Confirm this shipment group and request a freight tender via the service locator.
-        Per interface contract §3: ROQ creates the tender; freight manages it thereafter.
+        Confirm this shipment group.
 
-        If mml_freight is not installed, the service locator returns a NullService and
-        tender_id will be None — the group is still confirmed and the chatter records this.
-        The bridge module (mml_roq_freight) installs freight_tender_id on this model and
-        wires the real call when both modules are present.
+        Freight tender creation is handled exclusively by the mml_roq_freight bridge module
+        via the 'roq.shipment_group.confirmed' event subscription. This method must NOT call
+        create_tender() directly — doing so alongside the bridge would create two tenders.
+        If mml_freight is not installed (bridge absent), the event fires but is not handled
+        and the group is still confirmed correctly.
         """
         self.ensure_one()
         if self.state != 'draft':
             raise exceptions.UserError('Only draft shipment groups can be confirmed.')
-
-        svc = self.env['mml.registry'].service('freight')
-        tender_id = svc.create_tender({
-            'shipment_group_ref': self.name,        # lightweight ref (always present)
-            'shipment_group_id': self.id,           # relational link (added by bridge module)
-            'origin_port': self.origin_port or '',
-            'dest_port': self.destination_port or '',
-            'requested_pickup_date': self.target_ship_date,
-            'requested_delivery_date': self.target_delivery_date,
-            'po_ids': [(4, po.id) for po in self.po_ids],
-        })
 
         self.write({'state': 'confirmed'})
         self.env['mml.event'].emit(
@@ -268,14 +257,7 @@ class RoqShipmentGroup(models.Model):
             source_module='mml_roq_forecast',
             payload={'group_ref': self.name},
         )
-        if tender_id:
-            self.message_post(
-                body=f'Shipment group confirmed. Freight tender created: {tender_id}',
-            )
-        else:
-            self.message_post(
-                body='Shipment group confirmed. Freight module not installed — no tender created.',
-            )
+        self.message_post(body='Shipment group confirmed.')
 
     def action_cancel(self):
         self.ensure_one()
