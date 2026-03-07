@@ -28,7 +28,7 @@
                     <button name="action_run" string="Run Now"
                             type="object" class="btn-primary"
                             groups="base.group_system"
-                            attrs="{'invisible': [('status', 'in', ['running', 'complete'])]}"/>
+                            invisible="status in ('running', 'complete')"/>
                     <field name="status" widget="statusbar"
                            statusbar_visible="draft,running,complete"/>
                 </header>

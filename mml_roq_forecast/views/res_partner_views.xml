@@ -7,7 +7,7 @@
         <field name="arch" type="xml">
             <notebook position="inside">
                 <page string="ROQ / Freight" name="roq_freight_tab"
-                      attrs="{'invisible': [('supplier_rank', '=', 0)]}">
+                      invisible="supplier_rank == 0">
                     <group>
                         <group string="Freight">
                             <field name="purchase_incoterm_id"

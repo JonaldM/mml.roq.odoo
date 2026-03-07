@@ -78,10 +78,10 @@
                 <header>
                     <button name="action_confirm" string="Confirm &amp; Create Tender"
                             type="object" class="btn-primary"
-                            attrs="{'invisible': [('state', '!=', 'draft')]}"/>
+                            invisible="state != 'draft'"/>
                     <button name="action_cancel" string="Cancel"
                             type="object"
-                            attrs="{'invisible': [('state', 'in', ['delivered', 'cancelled'])]}"/>
+                            invisible="state in ('delivered', 'cancelled')"/>
                     <field name="state" widget="statusbar"
                            statusbar_visible="draft,confirmed,tendered,booked,delivered"/>
                 </header>
