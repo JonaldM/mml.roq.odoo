@@ -9,7 +9,7 @@ class RoqForwardPlan(models.Model):
 
     name = fields.Char(
         string='Reference', required=True, copy=False,
-        default=lambda self: self.env['ir.sequence'].next_by_code('roq.forward.plan'),
+        default=lambda self: self.env['ir.sequence'].sudo().next_by_code('roq.forward.plan'),
     )
     supplier_id = fields.Many2one('res.partner', required=True, string='Supplier')
     fob_port = fields.Char(string='FOB Port', related='supplier_id.fob_port', store=True)

@@ -7,6 +7,7 @@ class RoqAbcHistory(models.Model):
     _name = 'roq.abc.history'
     _description = 'ABC Tier Classification History'
     _order = 'date desc, product_id, warehouse_id'
+    _rec_name = 'product_id'
 
     product_id = fields.Many2one('product.template', required=True, ondelete='cascade')
     warehouse_id = fields.Many2one('stock.warehouse', string='Warehouse', required=True, ondelete='cascade')

@@ -24,6 +24,7 @@ class RoqForecastLine(models.Model):
     _name = 'roq.forecast.line'
     _description = 'ROQ Forecast Line'
     _order = 'run_id desc, supplier_id, product_id'
+    _rec_name = 'product_id'
 
     run_id = fields.Many2one('roq.forecast.run', required=True, ondelete='cascade')
     product_id = fields.Many2one('product.product', required=True, string='Product')

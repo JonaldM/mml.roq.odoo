@@ -34,7 +34,7 @@ class RoqForecastRun(models.Model):
     name = fields.Char(
         string='Reference', required=True, copy=False,
         default=lambda self: (
-            self.env['ir.sequence'].next_by_code('roq.forecast.run')
+            self.env['ir.sequence'].sudo().next_by_code('roq.forecast.run')
             or fields.Date.today().strftime('ROQ-%Y-W%W')
         ),
     )
@@ -73,7 +73,7 @@ class RoqForecastRun(models.Model):
         """Called by ir.cron weekly trigger."""
         # Warn if the sequence is missing — the name field fallback will handle it,
         # but this makes the misconfiguration visible in the server log immediately.
-        if not self.env['ir.sequence'].search([('code', '=', 'roq.forecast.run')], limit=1):
+        if not self.env['ir.sequence'].sudo().search([('code', '=', 'roq.forecast.run')], limit=1):
             _logger.warning(
                 "ROQ: ir.sequence with code 'roq.forecast.run' not found — "
                 "falling back to date-based reference. Install sequence data to fix."

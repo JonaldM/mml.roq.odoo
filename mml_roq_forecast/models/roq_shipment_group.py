@@ -39,7 +39,7 @@ class RoqShipmentGroup(models.Model):
 
     name = fields.Char(
         string='Reference', required=True, copy=False,
-        default=lambda self: self.env['ir.sequence'].next_by_code('roq.shipment.group'),
+        default=lambda self: self.env['ir.sequence'].sudo().next_by_code('roq.shipment.group'),
     )
 
     # Interface contract required fields
