@@ -47,6 +47,12 @@ class RoqRaisePoWizard(models.TransientModel):
                 'Edit quantities or toggle the quantity mode.'
             )
 
+        # Permission check — must precede all PO creation
+        if not self.env.user.has_group('purchase.group_purchase_user'):
+            raise exceptions.UserError(
+                _("You need Purchase User access to raise purchase orders.")
+            )
+
         sg_line = self.shipment_group_line_id
         po_ids = []
 
@@ -102,10 +108,6 @@ class RoqRaisePoWizard(models.TransientModel):
                     % (self.supplier_id.name, warehouse.name, self.run_id.name)
                 )
 
-            if not self.env.user.has_group('purchase.group_purchase_user'):
-                raise exceptions.UserError(
-                    _("You need Purchase User access to raise purchase orders.")
-                )
             po = self.env['purchase.order'].create(po_vals)
             po_ids.append(po.id)
             _logger.info(
@@ -117,7 +119,7 @@ class RoqRaisePoWizard(models.TransientModel):
         if sg_line and po_ids:
             sg_line.sudo().write({'purchase_order_id': po_ids[0]})
             # Link all POs to the shipment group if it has a po_ids field
-            if sg_line.group_id and hasattr(sg_line.group_id, 'po_ids'):
+            if sg_line and sg_line.group_id and 'po_ids' in sg_line.group_id._fields:
                 sg_line.group_id.sudo().write({'po_ids': [(4, pid) for pid in po_ids]})
 
         # Return action opening the raised PO(s)
