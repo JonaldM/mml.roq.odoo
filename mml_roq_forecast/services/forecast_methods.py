@@ -9,6 +9,12 @@ Returns:
 import math
 import numpy as np
 
+# Hard upper bound on any single-week demand forecast.
+# No SKU in a ~400-SKU NZ distributor context will ever legitimately demand
+# 1 000 000 units per week.  This prevents pathological trend explosion in
+# Holt-Winters from cascading into absurd container calculations.
+_MAX_WEEKLY_DEMAND = 1_000_000.0
+
 
 def forecast_sma(history, window=52):
     """
@@ -76,7 +82,7 @@ def forecast_holt_winters(history, seasonal_period=52, alpha=0.3, beta=0.1, gamm
     last_trend = trends[-1]
     last_season = seasons[-seasonal_period]
     forecast = last_level + last_trend + last_season
-    return max(0.0, forecast)
+    return max(0.0, min(_MAX_WEEKLY_DEMAND, forecast))
 
 
 def demand_std_dev(history, min_n=8):
