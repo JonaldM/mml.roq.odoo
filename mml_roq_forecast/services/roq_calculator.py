@@ -5,7 +5,10 @@ Reorder Point (s) = Out Level = demand × LT_weeks + safety_stock
 Order-Up-To (S)   = demand × (LT_weeks + review_weeks) + safety_stock
 ROQ (Raw)          = max(0, S − inventory_position)
 """
+import logging
 import math
+
+_logger = logging.getLogger(__name__)
 
 
 def calculate_out_level(weekly_demand, lt_weeks, safety_stock):
@@ -45,5 +48,11 @@ def calculate_weeks_of_cover(projected_inventory, weekly_demand):
     Returns 999.0 sentinel if weekly_demand is 0 (prevent division by zero).
     """
     if weekly_demand <= 0:
+        _logger.debug(
+            'weeks_of_cover: zero/negative weekly demand (%.4f) — '
+            'returning sentinel 999.0. If this SKU is being actively '
+            'ordered, investigate the demand forecast.',
+            weekly_demand,
+        )
         return 999.0
     return projected_inventory / weekly_demand
