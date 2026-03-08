@@ -6,7 +6,6 @@ All functions take:
 Returns:
   float — forecasted weekly demand for next period
 """
-import math
 import numpy as np
 
 # Hard upper bound on any single-week demand forecast.

@@ -189,3 +189,10 @@ mml_roq_forecast/
 | `docs/plans/2026-03-01-sprint-roadmap.md` | Sprint overview |
 | `docs/plans/2026-03-02-order-dashboard-po-raise.md` | Order Dashboard + Draft PO Raise |
 | `docs/plans/2026-03-04-shipment-calendar-implementation.md` | Shipment Calendar |
+
+## Available Commands
+
+- `/plan` — implementation plan before touching pipeline steps or adding new ROQ calculation modes
+- `/tdd` — write pure-Python service tests first (`pytest -m "not odoo_integration" -q`)
+- `/code-review` — review before running on production Odoo database
+- `/build-fix` — diagnose pytest or `odoo-bin --test-enable` failures

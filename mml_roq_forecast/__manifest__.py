@@ -2,7 +2,8 @@
     'name': 'MML ROQ Forecast & Procurement Planning',
     'version': '19.0.1.0.0',
     'summary': 'Demand forecasting, ROQ calculation, container consolidation, and 12-month procurement planning',
-    'author': 'MML Consumer Products',
+    'author': 'MML Consumer Products Ltd',
+    'website': 'https://www.mmlconsumerproducts.co.nz',
     'category': 'Inventory/Purchase',
     'depends': [
         'mml_base',
