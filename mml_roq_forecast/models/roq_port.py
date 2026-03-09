@@ -14,9 +14,10 @@ class RoqPort(models.Model):
     country_id = fields.Many2one('res.country', string='Country')
     active = fields.Boolean(default=True)
 
-    _sql_constraints = [
-        ('code_uniq', 'unique(code)', 'Port UN/LOCODE must be unique.'),
-    ]
+    _code_uniq = models.Constraint(
+        'UNIQUE(code)',
+        'Port UN/LOCODE must be unique.',
+    )
 
     @api.model_create_multi
     def create(self, vals_list):

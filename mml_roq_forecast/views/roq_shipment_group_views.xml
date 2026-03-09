@@ -21,7 +21,7 @@
                                 <div class="o_kanban_record_headings">
                                     <strong><field name="name"/></strong>
                                 </div>
-                                <span t-att-class="'badge ' + (record.mode.raw_value == 'proactive' ? 'text-bg-info' : 'text-bg-secondary')">
+                                <span t-att-class="'badge ' + (record.data.mode === 'proactive' ? 'text-bg-info' : 'text-bg-secondary')">
                                     <field name="mode"/>
                                 </span>
                             </div>
@@ -147,7 +147,7 @@
     <record id="action_roq_shipment_group" model="ir.actions.act_window">
         <field name="name">Shipment Groups</field>
         <field name="res_model">roq.shipment.group</field>
-        <field name="view_mode">kanban,tree,form</field>
+        <field name="view_mode">kanban,list,form</field>
         <field name="context">{'default_mode': 'reactive'}</field>
     </record>
 </odoo>

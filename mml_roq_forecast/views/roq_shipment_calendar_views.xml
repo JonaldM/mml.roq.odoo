@@ -57,7 +57,7 @@
                 domain="[('state','in',['tendered','booked'])]"/>
         <filter string="Active" name="filter_active_states"
                 domain="[('state','not in',['delivered','cancelled'])]"/>
-        <group expand="0" string="Group By">
+        <group>
           <filter string="Warehouse" name="group_warehouse"
                   context="{'group_by': 'destination_warehouse_ids'}"/>
           <filter string="State" name="group_state"

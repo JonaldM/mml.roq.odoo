@@ -7,7 +7,6 @@
         <field name="code">model.cron_run_weekly_roq()</field>
         <field name="interval_number">1</field>
         <field name="interval_type">weeks</field>
-        <field name="numbercall">-1</field>
         <field name="active">False</field>
     </record>
 
@@ -18,7 +17,6 @@
         <field name="code">model.search([('supplier_rank', '>', 0)]).sudo().action_update_lead_time_stats()</field>
         <field name="interval_number">1</field>
         <field name="interval_type">weeks</field>
-        <field name="numbercall">-1</field>
         <field name="active">False</field>
     </record>
 </odoo>

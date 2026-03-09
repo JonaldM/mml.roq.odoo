@@ -1,3 +1,4 @@
+import json
 import logging
 import statistics
 from odoo import models, fields, api
@@ -72,7 +73,6 @@ class ResPartnerRoqExt(models.Model):
 
     @api.constrains('supplier_holiday_periods')
     def _validate_holiday_periods_json(self):
-        import json
         for rec in self:
             if rec.supplier_holiday_periods:
                 try:
