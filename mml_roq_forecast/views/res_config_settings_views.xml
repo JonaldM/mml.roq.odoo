@@ -3,12 +3,12 @@
     <record id="res_config_settings_view_roq" model="ir.ui.view">
         <field name="name">res.config.settings.view.roq</field>
         <field name="model">res.config.settings</field>
-        <field name="inherit_id" ref="base_setup.res_config_settings_view_form"/>
+        <field name="inherit_id" ref="base.res_config_settings_view_form"/>
         <field name="arch" type="xml">
-            <xpath expr="//form/div[@class='settings']" position="inside">
-                <app string="ROQ Forecast" name="mml_roq_forecast">
+            <xpath expr="//form" position="inside">
+                <app data-string="ROQ Forecast" string="ROQ Forecast" name="mml_roq_forecast">
 
-                    <block title="Demand &amp; Forecast">
+                    <block title="Demand &amp; Forecast" name="roq_demand_setting_container">
                         <setting string="Default Lead Time (Days)"
                                  help="System-wide default. Overridden per-supplier.">
                             <field name="roq_default_lead_time_days"/>
@@ -29,13 +29,13 @@
                         </setting>
                     </block>
 
-                    <block title="ABCD Classification">
+                    <block title="ABCD Classification" name="roq_abc_setting_container">
                         <setting string="ABC Dampener (Weeks)">
                             <field name="roq_abc_dampener_weeks"/>
                         </setting>
                     </block>
 
-                    <block title="Ordering &amp; Containers">
+                    <block title="Ordering &amp; Containers" name="roq_ordering_setting_container">
                         <setting string="Container LCL Threshold (%)">
                             <field name="roq_container_lcl_threshold_pct"/>
                         </setting>
