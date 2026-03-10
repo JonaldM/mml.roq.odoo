@@ -120,6 +120,11 @@
                                     <field name="free_days_at_origin" optional="hide"/>
                                     <field name="original_ship_date"/>
                                     <field name="purchase_order_id"/>
+                                    <button name="action_view_forecast_lines"
+                                            string="View SKUs"
+                                            type="object"
+                                            icon="fa-list"
+                                            title="View individual SKUs and quantities for this supplier"/>
                                 </list>
                             </field>
                         </page>

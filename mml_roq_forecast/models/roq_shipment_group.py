@@ -307,6 +307,26 @@ class RoqShipmentGroupLine(models.Model):
         related='group_id.container_type', readonly=True,
     )
 
+    def action_view_forecast_lines(self):
+        """Open filtered ROQ forecast lines for this supplier in the parent run."""
+        self.ensure_one()
+        run = self.group_id.run_id
+        if not run:
+            raise exceptions.UserError('This shipment group has no linked ROQ run.')
+        return {
+            'type': 'ir.actions.act_window',
+            'name': f'SKUs — {self.supplier_id.name}',
+            'res_model': 'roq.forecast.line',
+            'view_mode': 'list',
+            'domain': [
+                ('run_id', '=', run.id),
+                ('supplier_id', '=', self.supplier_id.id),
+                ('roq_containerized', '>', 0),
+                ('abc_tier', '!=', 'D'),
+            ],
+            'context': {'create': False, 'delete': False},
+        }
+
     def action_raise_po_wizard(self):
         """Open the Raise Draft PO wizard pre-populated for this supplier."""
         self.ensure_one()
