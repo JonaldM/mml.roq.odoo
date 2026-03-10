@@ -3,7 +3,7 @@
     <menuitem id="menu_roq_root"
               name="ROQ Forecast"
               sequence="10"
-              action="action_roq_order_dashboard"/>
+              action="action_roq_forecast_run"/>
 
     <menuitem id="menu_roq_order_dashboard"
               name="Order Dashboard"
