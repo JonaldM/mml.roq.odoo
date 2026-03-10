@@ -15,13 +15,13 @@
                 <field name="state"/>
                 <field name="mode"/>
                 <templates>
-                    <t t-name="kanban-box">
+                    <t t-name="card">
                         <div class="oe_kanban_card oe_kanban_global_click">
                             <div class="o_kanban_record_top">
                                 <div class="o_kanban_record_headings">
                                     <strong><field name="name"/></strong>
                                 </div>
-                                <span t-att-class="'badge ' + (record.data.mode === 'proactive' ? 'text-bg-info' : 'text-bg-secondary')">
+                                <span t-att-class="'badge ' + (record.mode.value === 'proactive' ? 'text-bg-info' : 'text-bg-secondary')">
                                     <field name="mode"/>
                                 </span>
                             </div>
