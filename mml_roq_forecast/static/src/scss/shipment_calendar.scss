@@ -12,7 +12,10 @@
 // ─── Google Fonts ──────────────────────────────────────────────────────────
 // DM Mono   — shipment refs, codes, identifiers
 // Plus Jakarta Sans — clean operational label font
-@import url('https://fonts.googleapis.com/css2?family=DM+Mono:ital,wght@0,300;0,400;0,500&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap');
+// NOTE: Do NOT use @import url() with Google Fonts URLs in Odoo SCSS files.
+// Odoo's SCSS bundler treats semicolons (;) in URL parameters as statement
+// terminators, splitting the URL and corrupting web.assets_web.min.css.
+// Font loading must be done via a QWeb template <link> tag instead.
 
 // ─── Design Tokens ─────────────────────────────────────────────────────────
 :root {
