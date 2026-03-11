@@ -12,8 +12,8 @@ CONTAINER_TYPES = [
 
 SHIPMENT_STATE = [
     ('draft', 'Draft'),
-    ('confirmed', 'Confirmed'),   # action_confirm() → creates freight.tender
-    ('tendered', 'Tendered'),     # freight module transitions this
+    ('confirmed', 'Confirmed'),   # action_confirm() — plan locked, no tender yet
+    ('tendered', 'Tendered'),     # action_create_tender() → emits event → freight module creates tender
     ('booked', 'Booked'),         # freight module transitions this
     ('delivered', 'Delivered'),   # freight module writes back actual_delivery_date
     ('cancelled', 'Cancelled'),
@@ -236,19 +236,49 @@ class RoqShipmentGroup(models.Model):
 
     def action_confirm(self):
         """
-        Confirm this shipment group.
+        Confirm this shipment group — locks the plan without creating a freight tender.
 
-        Freight tender creation is handled exclusively by the mml_roq_freight bridge module
-        via the 'roq.shipment_group.confirmed' event subscription. This method must NOT call
-        create_tender() directly — doing so alongside the bridge would create two tenders.
-        If mml_freight is not installed (bridge absent), the event fires but is not handled
-        and the group is still confirmed correctly.
+        Confirmation can be done months in advance. Freight tendering is a separate step
+        (action_create_tender) which enforces the horizon window (roq.tender.horizon_days).
         """
         self.ensure_one()
         if self.state != 'draft':
             raise exceptions.UserError('Only draft shipment groups can be confirmed.')
 
         self.write({'state': 'confirmed'})
+        self.message_post(body='Shipment group confirmed. Freight tender can be submitted closer to the ship date.')
+
+    def action_create_tender(self):
+        """
+        Request freight tender for a confirmed shipment group.
+
+        Enforces the horizon window: target_ship_date must be within
+        roq.tender.horizon_days (default 45) days. Raises UserError if too early
+        so planners cannot accidentally tender 6 months out.
+
+        Emits roq.shipment_group.confirmed — the mml_roq_freight bridge handles
+        this event and calls FreightService.create_tender(). If mml_freight is not
+        installed the event fires but is not handled, which is safe.
+        """
+        self.ensure_one()
+        if self.state != 'confirmed':
+            raise exceptions.UserError('Only confirmed shipment groups can be tendered.')
+
+        if self.target_ship_date:
+            horizon = int(
+                self.env['ir.config_parameter'].sudo().get_param(
+                    'roq.tender.horizon_days', default=45
+                )
+            )
+            days_until_ship = (self.target_ship_date - fields.Date.today()).days
+            if days_until_ship > horizon:
+                earliest = self.target_ship_date - timedelta(days=horizon)
+                raise exceptions.UserError(
+                    f'This shipment is not due to ship for {days_until_ship} day(s). '
+                    f'Freight tenders should be submitted within {horizon} days of the ship date. '
+                    f'Earliest tender date: {earliest}.'
+                )
+
         self.env['mml.event'].emit(
             'roq.shipment_group.confirmed',
             quantity=1,
@@ -258,7 +288,7 @@ class RoqShipmentGroup(models.Model):
             source_module='mml_roq_forecast',
             payload={'group_ref': self.name},
         )
-        self.message_post(body='Shipment group confirmed.')
+        self.message_post(body='Freight tender requested.')
 
     def action_cancel(self):
         self.ensure_one()

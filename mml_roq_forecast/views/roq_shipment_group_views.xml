@@ -76,9 +76,12 @@
         <field name="arch" type="xml">
             <form>
                 <header>
-                    <button name="action_confirm" string="Confirm &amp; Create Tender"
+                    <button name="action_confirm" string="Confirm"
                             type="object" class="btn-primary"
                             invisible="state != 'draft'"/>
+                    <button name="action_create_tender" string="Create Tender"
+                            type="object" class="btn-primary"
+                            invisible="state != 'confirmed'"/>
                     <button name="action_cancel" string="Cancel"
                             type="object"
                             invisible="state in ('delivered', 'cancelled')"/>

@@ -76,4 +76,9 @@
         <field name="key">roq.calendar.reschedule_threshold_days</field>
         <field name="value">5</field>
     </record>
+
+    <record id="roq_param_tender_horizon" model="ir.config_parameter">
+        <field name="key">roq.tender.horizon_days</field>
+        <field name="value">45</field>
+    </record>
 </odoo>

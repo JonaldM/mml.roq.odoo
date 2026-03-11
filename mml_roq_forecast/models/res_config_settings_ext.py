@@ -60,3 +60,10 @@ class ResConfigSettingsRoqExt(models.TransientModel):
              'extra units allocated to the warehouse with lowest cover. '
              'When disabled, the MOQ flag is still shown but quantities are unchanged.',
     )
+    roq_tender_horizon_days = fields.Integer(
+        string='Tender Horizon (Days)',
+        default=45,
+        config_parameter='roq.tender.horizon_days',
+        help='Shipment groups can only be tendered this many days before the target ship date. '
+             'Prevents tendering freight 6–12 months in advance when carrier rates are not yet firm.',
+    )

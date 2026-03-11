@@ -45,6 +45,13 @@
                         </setting>
                     </block>
 
+                    <block title="Shipment Planning" name="roq_shipment_setting_container">
+                        <setting string="Tender Horizon (Days)"
+                                 help="Freight tenders can only be created this many days before the target ship date. Prevents tendering 6-12 months in advance when carrier rates are not yet firm. Default: 45 days.">
+                            <field name="roq_tender_horizon_days"/>
+                        </setting>
+                    </block>
+
                 </app>
             </xpath>
         </field>

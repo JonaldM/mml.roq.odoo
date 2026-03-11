@@ -1,3 +1,6 @@
+from datetime import date, timedelta
+
+from odoo import exceptions
 from odoo.tests.common import TransactionCase
 
 
@@ -34,3 +37,44 @@ class TestShipmentWorkflow(TransactionCase):
         self.sg.action_confirm()
         self.sg.action_cancel()
         self.assertEqual(self.sg.state, 'cancelled')
+
+    def test_confirm_does_not_emit_tender_event(self):
+        """action_confirm must NOT emit roq.shipment_group.confirmed anymore —
+        tender creation is deferred to action_create_tender."""
+        before = self.env['mml.event'].search_count([
+            ('event_type', '=', 'roq.shipment_group.confirmed'),
+            ('res_id', '=', self.sg.id),
+        ])
+        self.sg.action_confirm()
+        after = self.env['mml.event'].search_count([
+            ('event_type', '=', 'roq.shipment_group.confirmed'),
+            ('res_id', '=', self.sg.id),
+        ])
+        self.assertEqual(before, after, 'action_confirm must not emit tender event')
+
+    def test_create_tender_requires_confirmed_state(self):
+        """action_create_tender must raise on draft groups."""
+        with self.assertRaises(exceptions.UserError):
+            self.sg.action_create_tender()
+
+    def test_create_tender_blocked_outside_horizon(self):
+        """action_create_tender must raise when ship date is beyond the horizon."""
+        self.env['ir.config_parameter'].sudo().set_param('roq.tender.horizon_days', '45')
+        self.sg.action_confirm()
+        self.sg.target_ship_date = date.today() + timedelta(days=60)
+        with self.assertRaises(exceptions.UserError):
+            self.sg.action_create_tender()
+
+    def test_create_tender_allowed_within_horizon(self):
+        """action_create_tender must succeed when ship date is within the horizon."""
+        self.env['ir.config_parameter'].sudo().set_param('roq.tender.horizon_days', '45')
+        self.sg.action_confirm()
+        self.sg.target_ship_date = date.today() + timedelta(days=30)
+        # Does not raise — tender event emitted
+        self.sg.action_create_tender()
+
+    def test_create_tender_allowed_with_no_ship_date(self):
+        """If target_ship_date is unset the horizon check is skipped (fail-open)."""
+        self.sg.action_confirm()
+        self.sg.target_ship_date = False
+        self.sg.action_create_tender()  # must not raise
