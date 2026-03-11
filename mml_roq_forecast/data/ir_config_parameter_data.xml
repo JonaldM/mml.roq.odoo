@@ -1,0 +1,79 @@
+<?xml version="1.0" encoding="utf-8"?>
+<odoo noupdate="1">
+    <!-- ROQ system defaults — seeded on first install only (noupdate=1).
+         All values match the defaults in res_config_settings_ext.py.
+         To change these for a specific instance, use Settings > ROQ > Configuration.
+         Note: roq.calendar.* keys are not in the settings UI but are consumed in
+         roq_shipment_group.py via get_param() with defaults — seeded here for
+         clean installs. -->
+
+    <record id="roq_param_lead_time" model="ir.config_parameter">
+        <field name="key">roq.default_lead_time_days</field>
+        <field name="value">100</field>
+    </record>
+
+    <record id="roq_param_review_interval" model="ir.config_parameter">
+        <field name="key">roq.default_review_interval_days</field>
+        <field name="value">30</field>
+    </record>
+
+    <record id="roq_param_service_level" model="ir.config_parameter">
+        <field name="key">roq.default_service_level</field>
+        <field name="value">0.97</field>
+    </record>
+
+    <record id="roq_param_lookback_weeks" model="ir.config_parameter">
+        <field name="key">roq.lookback_weeks</field>
+        <field name="value">156</field>
+    </record>
+
+    <record id="roq_param_sma_window" model="ir.config_parameter">
+        <field name="key">roq.sma_window_weeks</field>
+        <field name="value">52</field>
+    </record>
+
+    <record id="roq_param_min_n" model="ir.config_parameter">
+        <field name="key">roq.min_n_value</field>
+        <field name="value">8</field>
+    </record>
+
+    <record id="roq_param_abc_dampener" model="ir.config_parameter">
+        <field name="key">roq.abc_dampener_weeks</field>
+        <field name="value">4</field>
+    </record>
+
+    <record id="roq_param_abc_trailing" model="ir.config_parameter">
+        <field name="key">roq.abc_trailing_revenue_weeks</field>
+        <field name="value">52</field>
+    </record>
+
+    <record id="roq_param_lcl_threshold" model="ir.config_parameter">
+        <field name="key">roq.container_lcl_threshold_pct</field>
+        <field name="value">50</field>
+    </record>
+
+    <record id="roq_param_max_padding" model="ir.config_parameter">
+        <field name="key">roq.max_padding_weeks_cover</field>
+        <field name="value">26</field>
+    </record>
+
+    <record id="roq_param_max_pull" model="ir.config_parameter">
+        <field name="key">roq.max_pull_days</field>
+        <field name="value">30</field>
+    </record>
+
+    <record id="roq_param_moq_enforcement" model="ir.config_parameter">
+        <field name="key">roq.enable_moq_enforcement</field>
+        <field name="value">True</field>
+    </record>
+
+    <record id="roq_param_consolidation_window" model="ir.config_parameter">
+        <field name="key">roq.calendar.consolidation_window_days</field>
+        <field name="value">21</field>
+    </record>
+
+    <record id="roq_param_reschedule_threshold" model="ir.config_parameter">
+        <field name="key">roq.calendar.reschedule_threshold_days</field>
+        <field name="value">5</field>
+    </record>
+</odoo>
