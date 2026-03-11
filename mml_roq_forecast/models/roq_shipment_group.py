@@ -118,8 +118,9 @@ class RoqShipmentGroup(models.Model):
         Empty @api.depends() ensures the result is never served from cache — each
         read hits the service locator so the calendar always shows live freight data."""
         svc = self.env['mml.registry'].service('freight')
+        get_status = getattr(svc, 'get_booking_status', None)
         for rec in self:
-            result = svc.get_booking_status(rec.id)
+            result = get_status(rec.id) if get_status else None
             if result:
                 rec.freight_eta = result.get('eta')
                 rec.freight_status = result.get('status')
