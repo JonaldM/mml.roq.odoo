@@ -71,19 +71,15 @@ class RoqRaisePoWizard(models.TransientModel):
                             wl.product_id.display_name, self.supplier_id.name)
                     )
                 price_unit = supplierinfo.price
-                product_uom = wl.product_id.uom_po_id
 
                 order_lines.append((0, 0, {
                     'product_id': wl.product_id.id,
                     'name': wl.product_id.display_name,
                     'product_qty': wl.qty_to_order,
                     'price_unit': price_unit,
-                    # Verified: product_uom and date_planned are correct field names
-                    # in Odoo 19 purchase.order.line.  product_uom retains the
-                    # historical Odoo naming (Many2one without _id suffix).
-                    # date_planned is the scheduled delivery date field — unchanged
-                    # across Odoo 16, 17, 18, and 19.
-                    'product_uom': product_uom.id,
+                    # Odoo 19: product_uom_id (renamed from product_uom in prior versions).
+                    # uom_po_id removed in Odoo 19 — use uom_id (standard UOM).
+                    'product_uom_id': wl.product_id.uom_id.id,
                     'date_planned': fields.Date.today(),
                 }))
 

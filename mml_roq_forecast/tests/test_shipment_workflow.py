@@ -78,3 +78,33 @@ class TestShipmentWorkflow(TransactionCase):
         self.sg.action_confirm()
         self.sg.target_ship_date = False
         self.sg.action_create_tender()  # must not raise
+
+    def test_confirm_with_no_run_posts_note(self):
+        """When no run_id is linked, confirm posts a chatter note and skips PO raising."""
+        self.sg.action_confirm()
+        self.assertEqual(self.sg.state, 'confirmed')
+        body_texts = self.sg.message_ids.mapped('body')
+        combined = ' '.join(body_texts)
+        self.assertIn('No ROQ run', combined)
+
+    def test_auto_raise_pos_skips_lines_with_existing_po(self):
+        """_auto_raise_pos must not create a second PO when purchase_order_id is already set."""
+        # Create a minimal existing PO
+        supplier = self.env['res.partner'].create({'name': 'Test Supplier', 'supplier_rank': 1})
+        warehouse = self.env['stock.warehouse'].search([], limit=1)
+        run = self.env['roq.forecast.run'].create({'name': 'ROQ-TEST-001'})
+        existing_po = self.env['purchase.order'].create({
+            'partner_id': supplier.id,
+            'picking_type_id': warehouse.in_type_id.id,
+        })
+        sg_line = self.env['roq.shipment.group.line'].create({
+            'group_id': self.sg.id,
+            'supplier_id': supplier.id,
+            'purchase_order_id': existing_po.id,
+        })
+        self.sg.run_id = run
+        # Confirm should not create another PO for this line
+        po_count_before = self.env['purchase.order'].search_count([])
+        self.sg.action_confirm()
+        po_count_after = self.env['purchase.order'].search_count([])
+        self.assertEqual(po_count_before, po_count_after, 'No new PO should be created for line with existing PO')

@@ -236,17 +236,147 @@ class RoqShipmentGroup(models.Model):
 
     def action_confirm(self):
         """
-        Confirm this shipment group — locks the plan without creating a freight tender.
+        Confirm this shipment group — locks the plan and auto-raises draft POs.
 
-        Confirmation can be done months in advance. Freight tendering is a separate step
-        (action_create_tender) which enforces the horizon window (roq.tender.horizon_days).
+        Calls _auto_raise_pos() to create one draft purchase.order per supplier × warehouse
+        for all lines that don't already have a PO. Non-fatal: lines with missing pricelist
+        entries or duplicate guards are skipped and reported in the chatter.
+
+        Freight tendering is a separate step (action_create_tender) which enforces
+        roq.tender.horizon_days. Do that closer to the ship date.
         """
         self.ensure_one()
         if self.state != 'draft':
             raise exceptions.UserError('Only draft shipment groups can be confirmed.')
 
         self.write({'state': 'confirmed'})
-        self.message_post(body='Shipment group confirmed. Freight tender can be submitted closer to the ship date.')
+        self._auto_raise_pos()
+
+    def _auto_raise_pos(self):
+        """Bulk-create draft POs for all supplier lines that don't already have one.
+
+        Iterates self.line_ids; for each line without a purchase_order_id it looks up
+        forecast lines from the linked ROQ run and creates one draft PO per warehouse.
+        Skips silently (with a chatter note) if:
+          - no run_id is set (proactive group, no forecast data)
+          - the line already has a PO
+          - no active forecast lines with qty > 0 for this supplier
+          - a vendor pricelist entry is missing for any product
+          - a duplicate draft PO already exists for this run / supplier / warehouse
+        """
+        self.ensure_one()
+        if not self.run_id:
+            self.message_post(
+                body='Shipment group confirmed. No ROQ run linked — raise POs manually from supplier lines.',
+                subtype_xmlid='mail.mt_note',
+            )
+            return
+
+        if not self.env.user.has_group('purchase.group_purchase_user'):
+            self.message_post(
+                body='Shipment group confirmed. Draft POs not raised automatically — '
+                     'current user lacks Purchase User access. Raise POs manually from supplier lines.',
+                subtype_xmlid='mail.mt_note',
+            )
+            return
+
+        raised = []
+        skipped = []
+
+        for sg_line in self.line_ids:
+            supplier = sg_line.supplier_id
+
+            if sg_line.purchase_order_id:
+                skipped.append(f'{supplier.name}: already has {sg_line.purchase_order_id.name}')
+                continue
+
+            forecast_lines = self.env['roq.forecast.line'].search([
+                ('run_id', '=', self.run_id.id),
+                ('supplier_id', '=', supplier.id),
+                ('roq_containerized', '>', 0),
+                ('abc_tier', '!=', 'D'),
+            ]).sorted(key=lambda l: l.product_id.name or '')
+
+            if not forecast_lines:
+                skipped.append(f'{supplier.name}: no active forecast lines with qty > 0')
+                continue
+
+            # Build per-warehouse order lines, resolving vendor pricelist
+            lines_by_wh = {}
+            missing_pricelist = []
+            for fl in forecast_lines:
+                supplierinfo = self.env['product.supplierinfo'].search([
+                    ('partner_id', '=', supplier.id),
+                    ('product_tmpl_id', '=', fl.product_id.product_tmpl_id.id),
+                ], limit=1)
+                if not supplierinfo:
+                    missing_pricelist.append(fl.product_id.display_name)
+                    continue
+                lines_by_wh.setdefault(fl.warehouse_id, []).append((fl, supplierinfo))
+
+            if missing_pricelist:
+                names = ', '.join(missing_pricelist[:3])
+                if len(missing_pricelist) > 3:
+                    names += f' (+{len(missing_pricelist) - 3} more)'
+                skipped.append(f'{supplier.name}: missing vendor pricelist for {names}')
+                continue
+
+            if not lines_by_wh:
+                skipped.append(f'{supplier.name}: no lines after pricelist check')
+                continue
+
+            po_ids_for_line = []
+            line_error = False
+            for warehouse, wh_lines in lines_by_wh.items():
+                existing = self.env['purchase.order'].search([
+                    ('state', '=', 'draft'),
+                    ('partner_id', '=', supplier.id),
+                    ('picking_type_id', '=', warehouse.in_type_id.id),
+                    ('origin', '=', self.run_id.name),
+                ], limit=1)
+                if existing:
+                    skipped.append(
+                        f'{supplier.name} @ {warehouse.name}: '
+                        f'draft PO {existing.name} already exists for this run'
+                    )
+                    line_error = True
+                    break
+
+                order_lines = [(0, 0, {
+                    'product_id': fl.product_id.id,
+                    'name': fl.product_id.display_name,
+                    'product_qty': fl.roq_containerized,
+                    'price_unit': si.price,
+                    'product_uom_id': fl.product_id.uom_id.id,
+                    'date_planned': fields.Date.today(),
+                }) for fl, si in wh_lines]
+
+                po = self.env['purchase.order'].create({
+                    'partner_id': supplier.id,
+                    'picking_type_id': warehouse.in_type_id.id,
+                    'order_line': order_lines,
+                    'origin': self.run_id.name,
+                    'shipment_group_id': self.id,
+                })
+                po_ids_for_line.append(po.id)
+
+            if line_error:
+                continue
+
+            if po_ids_for_line:
+                sg_line.sudo().write({'purchase_order_id': po_ids_for_line[0]})
+                if 'po_ids' in self._fields:
+                    self.sudo().write({'po_ids': [(4, pid) for pid in po_ids_for_line]})
+                raised.append(f'{supplier.name} ({len(po_ids_for_line)} PO(s))')
+
+        parts = ['Shipment group confirmed.']
+        if raised:
+            parts.append(f'Draft POs raised: {"; ".join(raised)}.')
+        if skipped:
+            parts.append(f'Skipped: {"; ".join(skipped)}.')
+        if not raised and not skipped:
+            parts.append('No supplier lines to raise POs for.')
+        self.message_post(body=' '.join(parts), subtype_xmlid='mail.mt_note')
 
     def action_create_tender(self):
         """
