@@ -28,7 +28,33 @@
                         </group>
                     </group>
                     <notebook>
-                        <!-- TAB 1: All active SKUs sorted by urgency (weeks-of-cover asc) -->
+                        <!-- TAB 1: Consolidated by supplier — one row per supplier with Raise PO button -->
+                        <page string="Order by Supplier" name="order_by_supplier">
+                            <p class="text-muted">
+                                One row per supplier from this run's shipment groups.
+                                Click <strong>Raise Draft PO</strong> to create purchase orders split by destination warehouse.
+                                The PO column shows the linked draft PO once raised.
+                            </p>
+                            <field name="supplier_order_line_ids" readonly="1">
+                                <list decoration-danger="oos_risk_flag == True">
+                                    <field name="supplier_id" readonly="1"/>
+                                    <field name="product_count" string="SKUs" readonly="1"/>
+                                    <field name="cbm" string="CBM" readonly="1"/>
+                                    <field name="container_type" string="Container" readonly="1"/>
+                                    <field name="oos_risk_flag" widget="boolean"
+                                           readonly="1"/>
+                                    <field name="purchase_order_id" string="PO" readonly="1"/>
+                                    <button name="action_raise_po_wizard"
+                                            string="Raise Draft PO"
+                                            type="object"
+                                            icon="fa-shopping-cart"
+                                            class="btn-primary btn-sm"
+                                            invisible="purchase_order_id != False"/>
+                                </list>
+                            </field>
+                        </page>
+
+                        <!-- TAB 2: All active SKUs sorted by urgency (weeks-of-cover asc) -->
                         <page string="Urgency List" name="urgency_list">
                             <p class="text-muted">
                                 Active SKUs sorted by weeks of cover at delivery (lowest = most urgent).
@@ -56,32 +82,6 @@
                                     <field name="container_type" optional="show"/>
                                     <field name="moq_flag" widget="boolean" optional="show" string="MOQ"/>
                                     <field name="notes"/>
-                                </list>
-                            </field>
-                        </page>
-
-                        <!-- TAB 2: Consolidated by supplier — one row per supplier with Raise PO button -->
-                        <page string="Order by Supplier" name="order_by_supplier">
-                            <p class="text-muted">
-                                One row per supplier from this run's shipment groups.
-                                Click <strong>Raise Draft PO</strong> to create purchase orders split by destination warehouse.
-                                The PO column shows the linked draft PO once raised.
-                            </p>
-                            <field name="supplier_order_line_ids" readonly="1">
-                                <list decoration-danger="oos_risk_flag == True">
-                                    <field name="supplier_id" readonly="1"/>
-                                    <field name="product_count" string="SKUs" readonly="1"/>
-                                    <field name="cbm" string="CBM" readonly="1"/>
-                                    <field name="container_type" string="Container" readonly="1"/>
-                                    <field name="oos_risk_flag" widget="boolean"
-                                           readonly="1"/>
-                                    <field name="purchase_order_id" string="PO" readonly="1"/>
-                                    <button name="action_raise_po_wizard"
-                                            string="Raise Draft PO"
-                                            type="object"
-                                            icon="fa-shopping-cart"
-                                            class="btn-primary btn-sm"
-                                            invisible="purchase_order_id != False"/>
                                 </list>
                             </field>
                         </page>
