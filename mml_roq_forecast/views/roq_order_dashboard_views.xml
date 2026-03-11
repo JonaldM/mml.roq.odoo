@@ -33,16 +33,17 @@
                             <p class="text-muted">
                                 One row per supplier from this run's shipment groups.
                                 Click <strong>Raise Draft PO</strong> to create purchase orders split by destination warehouse.
-                                The PO column shows the linked draft PO once raised.
+                                Expand a supplier below to see which products are included.
                             </p>
+
+                            <!-- Supplier summary: raise POs here -->
                             <field name="supplier_order_line_ids" readonly="1">
                                 <list decoration-danger="oos_risk_flag == True">
                                     <field name="supplier_id" readonly="1"/>
                                     <field name="product_count" string="SKUs" readonly="1"/>
                                     <field name="cbm" string="CBM" readonly="1"/>
                                     <field name="container_type" string="Container" readonly="1"/>
-                                    <field name="oos_risk_flag" widget="boolean"
-                                           readonly="1"/>
+                                    <field name="oos_risk_flag" widget="boolean" readonly="1"/>
                                     <field name="purchase_order_id" string="PO" readonly="1"/>
                                     <button name="action_raise_po_wizard"
                                             string="Raise Draft PO"
@@ -50,6 +51,31 @@
                                             icon="fa-shopping-cart"
                                             class="btn-primary btn-sm"
                                             invisible="purchase_order_id != False"/>
+                                </list>
+                            </field>
+
+                            <separator string="Products by Supplier"/>
+
+                            <!-- Product breakdown — grouped by supplier, collapsible -->
+                            <field name="line_ids"
+                                   domain="[('roq_containerized', '&gt;', 0), ('abc_tier', '!=', 'D')]"
+                                   context="{'group_by': ['supplier_id']}"
+                                   readonly="1">
+                                <list string="Products by Supplier"
+                                      default_order="supplier_id, product_id"
+                                      decoration-danger="projected_inventory_at_delivery &lt; 0"
+                                      decoration-warning="weeks_of_cover_at_delivery &lt; 8 and projected_inventory_at_delivery &gt;= 0">
+                                    <field name="supplier_id" optional="hide"/>
+                                    <field name="product_id" string="Product"/>
+                                    <field name="warehouse_id" string="Warehouse"/>
+                                    <field name="abc_tier" widget="badge"
+                                           decoration-danger="abc_tier == 'A'"
+                                           decoration-warning="abc_tier == 'B'"
+                                           decoration-info="abc_tier == 'C'"/>
+                                    <field name="roq_containerized" string="Order Qty"/>
+                                    <field name="cbm_total" string="CBM" optional="show"/>
+                                    <field name="weeks_of_cover_at_delivery" string="Cover (wks)"/>
+                                    <field name="notes" optional="show"/>
                                 </list>
                             </field>
                         </page>
