@@ -1,45 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
-  <!-- Custom OWL Shipment Calendar view (registered via JS viewRegistry as
-       'shipment_calendar'). Uses daily granularity only — no hourly diary view.
-       Shipment cards anchor on target_delivery_date (or freight_eta when live
-       carrier data is present). Supports HTML5 drag-and-drop rescheduling with
-       a consolidation prompt on significant date shifts.                       -->
+  <!-- Custom OWL Shipment Calendar — type "shipment_calendar" is registered via
+       Python selection_add on ir.ui.view so the ORM accepts it. The JS side
+       registers the matching OWL component via viewRegistry.add('shipment_calendar').
+       Daily granularity only: no hourly diary. Cards anchor on
+       target_delivery_date (or freight_eta when live carrier data is present).
+       Drag-and-drop rescheduling with consolidation prompt.              -->
   <record id="roq_shipment_group_calendar_view" model="ir.ui.view">
     <field name="name">roq.shipment.group.calendar</field>
     <field name="model">roq.shipment.group</field>
+    <field name="type">shipment_calendar</field>
+    <field name="priority">16</field>
     <field name="arch" type="xml">
       <shipment_calendar/>
-    </field>
-  </record>
-
-  <!-- Keep the standard Odoo calendar as a fallback view accessible from the
-       list/form action so that calendar switcher buttons still work.           -->
-  <record id="roq_shipment_group_calendar_fallback" model="ir.ui.view">
-    <field name="name">roq.shipment.group.calendar.fallback</field>
-    <field name="model">roq.shipment.group</field>
-    <field name="priority">20</field>
-    <field name="arch" type="xml">
-      <calendar
-        string="Shipment Calendar"
-        date_start="target_ship_date"
-        date_stop="target_delivery_date"
-        color="state"
-        mode="month"
-        quick_create="false"
-        event_open_popup="true"
-      >
-        <field name="name"/>
-        <field name="state"/>
-        <field name="origin_port"/>
-        <field name="container_type"/>
-        <field name="fill_percentage"/>
-        <field name="destination_warehouse_ids"/>
-        <field name="freight_eta"/>
-        <field name="freight_status" invisible="freight_eta == False"/>
-        <field name="consolidation_suggestion" invisible="1"/>
-      </calendar>
     </field>
   </record>
 
