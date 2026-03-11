@@ -389,7 +389,7 @@ export const ShipmentCalendarView = {
     display_name: "Shipment Calendar",
     icon: "fa fa-anchor",
     multiRecord: true,
-    Component: ShipmentCalendarController,
+    Controller: ShipmentCalendarController,
 };
 
 registry.category("views").add("shipment_calendar", ShipmentCalendarView);
