@@ -349,7 +349,7 @@ class RoqShipmentGroupLine(models.Model):
             ('supplier_id', '=', self.supplier_id.id),
             ('roq_containerized', '>', 0),
             ('abc_tier', '!=', 'D'),
-        ], order='product_id.name')
+        ]).sorted(key=lambda l: l.product_id.name or '')
         if not forecast_lines:
             raise exceptions.UserError(
                 f'No active order lines found for {self.supplier_id.name} in run {run.name}.'

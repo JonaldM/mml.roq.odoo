@@ -526,6 +526,442 @@
   font-weight: 500;
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// OWL CUSTOM SHIPMENT CALENDAR VIEW
+// Clean monthly grid — daily granularity, no hourly diary view.
+// ═══════════════════════════════════════════════════════════════════════════
+
+// ─── Root wrapper ────────────────────────────────────────────────────────────
+.mml-sg-cal-root {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  font-family: var(--nav-font-body);
+  background: var(--nav-canvas);
+}
+
+// ─── Loading state ───────────────────────────────────────────────────────────
+.mml-sg-cal-loading {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 60px 0;
+  font-family: var(--nav-font-body);
+  font-size: 0.9rem;
+  color: var(--nav-text-muted);
+
+  .fa-anchor {
+    color: var(--nav-confirmed);
+    font-size: 1.25rem;
+  }
+}
+
+// ─── Calendar container ───────────────────────────────────────────────────────
+.mml-sg-cal {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--nav-canvas);
+  // Chart-paper texture
+  background-image:
+    linear-gradient(var(--nav-grid) 1px, transparent 1px),
+    linear-gradient(90deg, var(--nav-grid) 1px, transparent 1px);
+  background-size: 100% 40px, 40px 100%;
+  background-attachment: local;
+}
+
+// ─── Header ──────────────────────────────────────────────────────────────────
+.mml-sg-cal-header {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  padding: 12px 16px 10px;
+  background: var(--nav-surface);
+  border-bottom: 2px solid var(--nav-grid);
+  flex-shrink: 0;
+}
+
+.mml-sg-cal-nav {
+  display: flex;
+  gap: 4px;
+}
+
+.mml-sg-cal-btn {
+  font-family: var(--nav-font-body);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  border: 1.5px solid var(--nav-border);
+  background: var(--nav-surface);
+  color: var(--nav-text-label);
+  border-radius: var(--nav-radius);
+  padding: 4px 10px;
+  cursor: pointer;
+  transition: background 0.12s, border-color 0.12s, color 0.12s;
+  line-height: 1.4;
+
+  &:hover {
+    background: var(--nav-text);
+    border-color: var(--nav-text);
+    color: #fff;
+  }
+
+  &.mml-sg-cal-btn-today {
+    letter-spacing: 0.03em;
+  }
+}
+
+.mml-sg-cal-month-label {
+  flex: 1;
+  margin: 0;
+  font-family: var(--nav-font-body);
+  font-size: 1.0625rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  color: var(--nav-text);
+}
+
+// ─── State legend (header right) ─────────────────────────────────────────────
+.mml-sg-cal-legend {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.mml-sg-legend-item {
+  font-family: var(--nav-font-body);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 2px 7px;
+  border-radius: 2px;
+  color: #fff;
+
+  &.mml-sg-state-draft     { background: var(--nav-draft); color: var(--nav-text); }
+  &.mml-sg-state-confirmed { background: var(--nav-confirmed); }
+  &.mml-sg-state-tendered  { background: var(--nav-tendered); }
+  &.mml-sg-state-booked    { background: var(--nav-booked); }
+  &.mml-sg-state-delivered { background: var(--nav-delivered); }
+}
+
+// ─── Day-of-week column headers ───────────────────────────────────────────────
+.mml-sg-cal-dow-row {
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  background: var(--nav-surface);
+  border-bottom: 1.5px solid var(--nav-grid);
+  flex-shrink: 0;
+}
+
+.mml-sg-cal-dow {
+  padding: 6px 8px;
+  font-family: var(--nav-font-body);
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--nav-text-muted);
+  text-align: center;
+  border-right: 1px solid var(--nav-grid);
+
+  &:last-child { border-right: none; }
+}
+
+// ─── Month grid ───────────────────────────────────────────────────────────────
+.mml-sg-cal-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(7, 1fr);
+  grid-template-rows: repeat(6, 1fr);
+  min-height: 0;
+  overflow-y: auto;
+  border-top: none;
+}
+
+// ─── Day cells ────────────────────────────────────────────────────────────────
+.mml-sg-cal-day {
+  min-height: 100px;
+  padding: 4px 4px 6px;
+  border-right: 1px solid var(--nav-grid);
+  border-bottom: 1px solid var(--nav-grid);
+  background: var(--nav-surface);
+  transition: background 0.1s;
+  position: relative;
+
+  &:nth-child(7n) { border-right: none; }
+
+  // Faded non-current-month days
+  &.mml-sg-cal-day--other-month {
+    background: var(--nav-canvas);
+    opacity: 0.6;
+  }
+
+  // Today highlight
+  &.mml-sg-cal-day--today {
+    background: rgba(3, 105, 161, 0.04);
+
+    .mml-sg-cal-day-num {
+      background: var(--nav-confirmed);
+      color: #fff;
+      border-radius: 50%;
+      width: 22px;
+      height: 22px;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+    }
+  }
+
+  // Drop target highlight during drag
+  &.mml-sg-cal-day--drop-target,
+  &:focus-within {
+    background: rgba(3, 105, 161, 0.07);
+    outline: 2px dashed var(--nav-confirmed);
+    outline-offset: -2px;
+  }
+}
+
+// Accept drop-target class from JS
+.mml-sg-cal-day[data-drop-active="true"] {
+  background: rgba(3, 105, 161, 0.07);
+  outline: 2px dashed var(--nav-confirmed);
+  outline-offset: -2px;
+}
+
+.mml-sg-cal-day-num {
+  display: inline-block;
+  font-family: var(--nav-font-mono);
+  font-size: 0.75rem;
+  font-weight: 400;
+  color: var(--nav-text-muted);
+  padding: 3px 4px;
+  line-height: 1;
+}
+
+.mml-sg-cal-day-events {
+  margin-top: 2px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+// ─── Shipment cards ───────────────────────────────────────────────────────────
+.mml-sg-card {
+  position: relative;
+  border-radius: var(--nav-radius);
+  background: var(--nav-surface);
+  box-shadow: var(--nav-shadow);
+  overflow: hidden;
+  cursor: pointer;
+  transition: transform 0.1s ease, box-shadow 0.1s ease;
+  padding: 4px 6px 4px 9px;  // extra left pad for accent bar
+  user-select: none;
+
+  // Left accent bar — state colour
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    border-radius: var(--nav-radius) 0 0 var(--nav-radius);
+  }
+
+  &:hover {
+    transform: translateY(-1px);
+    box-shadow: var(--nav-shadow-lg);
+    z-index: 5;
+  }
+
+  // State accent colors
+  &.mml-sg-state-draft {
+    border: 1px solid #e2e8f0;
+    &::before { background: var(--nav-draft); }
+  }
+  &.mml-sg-state-confirmed {
+    border: 1px solid #bfdbfe;
+    &::before { background: var(--nav-confirmed); }
+  }
+  &.mml-sg-state-tendered {
+    border: 1px solid #fde68a;
+    &::before { background: var(--nav-tendered); }
+  }
+  &.mml-sg-state-booked {
+    border: 1px solid #a7f3d0;
+    &::before { background: var(--nav-booked); }
+  }
+  &.mml-sg-state-delivered {
+    border: 1px solid #d1d5db;
+    opacity: 0.7;
+    &::before { background: var(--nav-delivered); }
+  }
+  &.mml-sg-state-cancelled {
+    border: 1px solid #e2e8f0;
+    opacity: 0.45;
+    text-decoration: line-through;
+    &::before { background: var(--nav-cancelled); }
+  }
+
+  // Draggable cursor
+  &.mml-sg-card--draggable {
+    cursor: grab;
+  }
+
+  // Drag-in-progress ghost
+  &:active.mml-sg-card--draggable {
+    cursor: grabbing;
+    opacity: 0.7;
+  }
+
+  // Live ETA indicator glow
+  &.mml-sg-card--live-eta {
+    background: #f0fdf4;
+  }
+}
+
+.mml-sg-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+  min-width: 0;
+}
+
+.mml-sg-card-ref {
+  font-family: var(--nav-font-mono);
+  font-size: 0.6875rem;
+  font-weight: 500;
+  color: var(--nav-text);
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+// Pulsing green dot — live carrier ETA
+.mml-sg-card-live-dot {
+  display: inline-block;
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--nav-booked);
+  flex-shrink: 0;
+  animation: mml-pulse 2s ease-in-out infinite;
+}
+
+@keyframes mml-pulse {
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50%       { opacity: 0.5; transform: scale(0.8); }
+}
+
+.mml-sg-card-meta {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.mml-sg-card-container {
+  font-family: var(--nav-font-mono);
+  font-size: 0.625rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  color: var(--nav-text-muted);
+  text-transform: uppercase;
+}
+
+.mml-sg-card-port {
+  font-family: var(--nav-font-body);
+  font-size: 0.625rem;
+  color: var(--nav-text-muted);
+}
+
+// ─── Reschedule / Consolidation Dialog ───────────────────────────────────────
+.mml-sg-dialog {
+  font-family: var(--nav-font-body);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.mml-sg-dialog-summary {
+  padding: 12px 14px;
+  background: #f8fafc;
+  border: 1.5px solid var(--nav-grid);
+  border-radius: var(--nav-radius);
+  margin-bottom: 16px;
+  color: var(--nav-text);
+}
+
+.mml-sg-dialog-ref {
+  font-family: var(--nav-font-mono);
+  font-weight: 600;
+  color: var(--nav-text);
+  letter-spacing: 0.02em;
+}
+
+.mml-sg-dialog-date {
+  font-family: var(--nav-font-mono);
+  font-weight: 500;
+  color: var(--nav-text-label);
+
+  &.mml-sg-dialog-date--new {
+    color: var(--nav-confirmed);
+    font-weight: 700;
+  }
+}
+
+.mml-sg-dialog-consolidation {
+  border: 1.5px solid #dbeafe;
+  border-radius: var(--nav-radius-lg);
+  background: #eff6ff;
+  padding: 12px 14px;
+  margin-top: 4px;
+}
+
+.mml-sg-dialog-consolidation-header {
+  font-family: var(--nav-font-body);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--nav-confirmed);
+  margin-bottom: 8px;
+
+  .fa { margin-right: 5px; }
+}
+
+.mml-sg-dialog-candidates {
+  padding-left: 16px;
+  margin: 6px 0 8px;
+
+  li {
+    margin-bottom: 4px;
+    font-size: 0.875rem;
+    color: var(--nav-text-label);
+  }
+}
+
+.mml-sg-dialog-hint {
+  font-size: 0.8125rem;
+  color: var(--nav-text-muted);
+  margin: 0;
+}
+
+.mml-sg-dialog-no-consolidation {
+  font-size: 0.875rem;
+  margin: 0;
+}
+
+// ─── Drop-target visual feedback (applied via data attribute in OWL) ──────────
+.mml-sg-cal-day[data-drop-target="true"] {
+  background: rgba(3, 105, 161, 0.08) !important;
+  outline: 2px dashed var(--nav-confirmed) !important;
+  outline-offset: -2px;
+}
+
 // ─── Print / Export tweaks ──────────────────────────────────────────────────
 @media print {
   .o_calendar_view {

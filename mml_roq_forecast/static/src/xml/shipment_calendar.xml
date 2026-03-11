@@ -1,0 +1,203 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<templates xml:space="preserve">
+
+  <!-- ─── Controller Root ──────────────────────────────────────────────── -->
+  <t t-name="mml_roq_forecast.ShipmentCalendarController">
+    <div class="o_action o_view_controller mml-sg-cal-root">
+      <t t-if="state.loading">
+        <div class="mml-sg-cal-loading">
+          <span class="fa fa-anchor fa-spin"/>
+          <span>Loading shipments…</span>
+        </div>
+      </t>
+      <t t-else="">
+        <ShipmentCalendarRenderer
+          records="state.records"
+          year="state.year"
+          month="state.month"
+          onPrevMonth="() => this.onPrevMonth()"
+          onNextMonth="() => this.onNextMonth()"
+          onToday="() => this.onToday()"
+          onOpenRecord="(id) => this.onOpenRecord(id)"
+          onDropRecord="(id, dateStr) => this.onDropRecord(id, dateStr)"
+        />
+      </t>
+    </div>
+  </t>
+
+  <!-- ─── Renderer ─────────────────────────────────────────────────────── -->
+  <t t-name="mml_roq_forecast.ShipmentCalendarRenderer">
+    <div class="mml-sg-cal">
+
+      <!-- Header: navigation + month label + legend -->
+      <div class="mml-sg-cal-header">
+        <div class="mml-sg-cal-nav">
+          <button class="mml-sg-cal-btn" t-on-click="props.onPrevMonth" title="Previous month">
+            <span class="fa fa-chevron-left"/>
+          </button>
+          <button class="mml-sg-cal-btn mml-sg-cal-btn-today" t-on-click="props.onToday">
+            Today
+          </button>
+          <button class="mml-sg-cal-btn" t-on-click="props.onNextMonth" title="Next month">
+            <span class="fa fa-chevron-right"/>
+          </button>
+        </div>
+        <h2 class="mml-sg-cal-month-label" t-esc="monthLabel"/>
+        <div class="mml-sg-cal-legend">
+          <span class="mml-sg-legend-item mml-sg-state-draft">Draft</span>
+          <span class="mml-sg-legend-item mml-sg-state-confirmed">Confirmed</span>
+          <span class="mml-sg-legend-item mml-sg-state-tendered">Tendered</span>
+          <span class="mml-sg-legend-item mml-sg-state-booked">Booked</span>
+          <span class="mml-sg-legend-item mml-sg-state-delivered">Delivered</span>
+        </div>
+      </div>
+
+      <!-- Day-of-week column headers -->
+      <div class="mml-sg-cal-dow-row">
+        <t t-foreach="DAY_HEADERS" t-as="dow" t-key="dow">
+          <div class="mml-sg-cal-dow" t-esc="dow"/>
+        </t>
+      </div>
+
+      <!-- Month grid — 42 cells (6 weeks × 7 days) -->
+      <div class="mml-sg-cal-grid">
+        <t t-foreach="weeks" t-as="week" t-key="week_index">
+          <t t-foreach="week" t-as="day" t-key="day.dateStr">
+            <CalendarDay
+              day="day"
+              records="recordsForDay(day.dateStr)"
+              isDropTarget="dropTargetDateStr.value === day.dateStr"
+              onDragStart="(ev, rec) => this.onDragStart(ev, rec)"
+              onDragEnter="(d) => this.onDragEnter(d)"
+              onDragLeave="() => this.onDragLeave()"
+              onDrop="(ev, d) => this.onDrop(ev, d)"
+              onOpenRecord="props.onOpenRecord"
+            />
+          </t>
+        </t>
+      </div>
+    </div>
+  </t>
+
+  <!-- ─── Calendar Day Cell ─────────────────────────────────────────────── -->
+  <t t-name="mml_roq_forecast.CalendarDay">
+    <div
+      class="mml-sg-cal-day"
+      t-att-class="{
+        'mml-sg-cal-day--other-month': !props.day.isCurrentMonth,
+        'mml-sg-cal-day--today': props.day.isToday,
+        'mml-sg-cal-day--drop-target': props.isDropTarget
+      }"
+      t-on-dragover="onDragOver"
+      t-on-dragenter="onDragEnter"
+      t-on-dragleave="onDragLeave"
+      t-on-drop="onDrop"
+    >
+      <span class="mml-sg-cal-day-num" t-esc="props.day.date.getDate()"/>
+      <div class="mml-sg-cal-day-events">
+        <t t-foreach="props.records" t-as="rec" t-key="rec.id">
+          <ShipmentCard
+            record="rec"
+            onDragStart="props.onDragStart"
+            onOpenRecord="props.onOpenRecord"
+          />
+        </t>
+      </div>
+    </div>
+  </t>
+
+  <!-- ─── Shipment Card ─────────────────────────────────────────────────── -->
+  <t t-name="mml_roq_forecast.ShipmentCard">
+    <div
+      class="mml-sg-card"
+      t-att-class="{
+        'mml-sg-card--draggable': isDraggable,
+        'mml-sg-card--live-eta': isLiveEta,
+        ['mml-sg-state-' + props.record.state]: true
+      }"
+      t-att-draggable="isDraggable ? 'true' : 'false'"
+      t-on-dragstart="onDragStart"
+      t-on-click="onClick"
+      t-att-title="props.record.name + ' — ' + stateLabel + (isLiveEta ? ' (live ETA)' : '')"
+    >
+      <div class="mml-sg-card-body">
+        <span class="mml-sg-card-ref">
+          <t t-esc="props.record.name"/>
+          <t t-if="isLiveEta">
+            <span class="mml-sg-card-live-dot" title="Live carrier ETA"/>
+          </t>
+        </span>
+        <span class="mml-sg-card-meta">
+          <t t-if="props.record.container_type">
+            <span class="mml-sg-card-container" t-esc="props.record.container_type"/>
+          </t>
+          <t t-if="props.record.origin_port">
+            <span class="mml-sg-card-port" t-esc="props.record.origin_port"/>
+          </t>
+        </span>
+      </div>
+    </div>
+  </t>
+
+  <!-- ─── Reschedule / Consolidation Dialog ────────────────────────────── -->
+  <t t-name="mml_roq_forecast.RescheduleDialog">
+    <Dialog title="'Shipment Rescheduled'" size="'md'">
+      <t t-set-slot="default">
+        <div class="mml-sg-dialog">
+
+          <!-- Summary row -->
+          <div class="mml-sg-dialog-summary">
+            <span class="mml-sg-dialog-ref" t-esc="props.record.name"/>
+            <span> has been </span>
+            <strong t-esc="deltaText"/>
+            <span>: </span>
+            <span class="mml-sg-dialog-date" t-esc="fromText"/>
+            <span> → </span>
+            <span class="mml-sg-dialog-date mml-sg-dialog-date--new" t-esc="toText"/>
+          </div>
+
+          <!-- Consolidation candidates (if any) -->
+          <t t-if="props.candidates.length > 0">
+            <div class="mml-sg-dialog-consolidation">
+              <div class="mml-sg-dialog-consolidation-header">
+                <span class="fa fa-compress me-1"/>Consolidation opportunity
+              </div>
+              <p>
+                The following shipments from the same origin port are now within
+                the consolidation window:
+              </p>
+              <ul class="mml-sg-dialog-candidates">
+                <t t-foreach="props.candidates" t-as="c" t-key="c.id">
+                  <li>
+                    <span class="mml-sg-dialog-ref" t-esc="c.name"/>
+                    <t t-if="c.container_type">
+                      <span class="mml-sg-card-container" t-esc="' — ' + c.container_type"/>
+                    </t>
+                    <t t-if="c.origin_port">
+                      <span class="mml-sg-card-port" t-esc="' (' + c.origin_port + ')'"/>
+                    </t>
+                  </li>
+                </t>
+              </ul>
+              <p class="mml-sg-dialog-hint">
+                Consider consolidating these shipments to maximise container fill
+                at port. Open each shipment to review and adjust order quantities.
+              </p>
+            </div>
+          </t>
+
+          <t t-else="">
+            <p class="mml-sg-dialog-no-consolidation text-muted">
+              No nearby same-origin shipments found within the consolidation window.
+            </p>
+          </t>
+        </div>
+      </t>
+
+      <t t-set-slot="footer">
+        <button class="btn btn-primary" t-on-click="onDone">Done</button>
+      </t>
+    </Dialog>
+  </t>
+
+</templates>

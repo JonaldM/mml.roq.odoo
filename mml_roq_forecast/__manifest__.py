@@ -36,6 +36,8 @@
     'assets': {
         'web.assets_backend': [
             'mml_roq_forecast/static/src/scss/shipment_calendar.scss',
+            'mml_roq_forecast/static/src/xml/shipment_calendar.xml',
+            'mml_roq_forecast/static/src/js/shipment_calendar_view.js',
         ],
     },
     'external_dependencies': {

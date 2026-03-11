@@ -1,9 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <odoo>
 
+  <!-- Custom OWL Shipment Calendar view (registered via JS viewRegistry as
+       'shipment_calendar'). Uses daily granularity only — no hourly diary view.
+       Shipment cards anchor on target_delivery_date (or freight_eta when live
+       carrier data is present). Supports HTML5 drag-and-drop rescheduling with
+       a consolidation prompt on significant date shifts.                       -->
   <record id="roq_shipment_group_calendar_view" model="ir.ui.view">
     <field name="name">roq.shipment.group.calendar</field>
     <field name="model">roq.shipment.group</field>
+    <field name="arch" type="xml">
+      <shipment_calendar/>
+    </field>
+  </record>
+
+  <!-- Keep the standard Odoo calendar as a fallback view accessible from the
+       list/form action so that calendar switcher buttons still work.           -->
+  <record id="roq_shipment_group_calendar_fallback" model="ir.ui.view">
+    <field name="name">roq.shipment.group.calendar.fallback</field>
+    <field name="model">roq.shipment.group</field>
+    <field name="priority">20</field>
     <field name="arch" type="xml">
       <calendar
         string="Shipment Calendar"
@@ -30,12 +46,12 @@
   <record id="action_roq_shipment_calendar" model="ir.actions.act_window">
     <field name="name">Shipment Calendar</field>
     <field name="res_model">roq.shipment.group</field>
-    <field name="view_mode">calendar,list,form</field>
+    <field name="view_mode">shipment_calendar,list,form</field>
     <field name="view_id" ref="roq_shipment_group_calendar_view"/>
     <field name="context">{'search_default_filter_active_states': 1}</field>
     <field name="help" type="html">
       <p class="o_view_nocontent_smiling_face">No shipments to display.</p>
-      <p>Shipment groups appear here once created from a ROQ run. Use month view to plan arrivals; week view for near-term operations.</p>
+      <p>Shipment groups appear here once created from a ROQ run. Drag cards to reschedule — the system will suggest consolidation opportunities for same-origin shipments.</p>
     </field>
   </record>
 
