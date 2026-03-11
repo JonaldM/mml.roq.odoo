@@ -117,6 +117,34 @@ class RoqForecastRun(models.Model):
         except Exception:
             _logger.exception('Failed to send cron alert email for %s', module_name)
 
+    def unlink(self):
+        """Delete runs along with their draft shipment groups.
+
+        Shipment groups that have been confirmed, tendered, booked, or delivered,
+        or that have a purchase order raised against any supplier line, are
+        preserved — their run_id is set to null (orphaned) so they remain
+        visible and manageable without the run record.
+
+        Draft groups with no POs are safe to remove — they represent unrealised
+        pipeline output that has no downstream commitments.
+        """
+        for run in self:
+            safe_to_delete = run.shipment_group_ids.filtered(
+                lambda g: g.state == 'draft'
+                and not g.line_ids.filtered(lambda l: l.purchase_order_id)
+            )
+            preserved = run.shipment_group_ids - safe_to_delete
+            if preserved:
+                _logger.info(
+                    'ROQ run %s deleted: preserving %d active/committed shipment group(s) '
+                    '(%s) — run_id will be set to null.',
+                    run.name,
+                    len(preserved),
+                    ', '.join(preserved.mapped('name')),
+                )
+            safe_to_delete.unlink()
+        return super().unlink()
+
     def action_run(self):
         """User-triggered or cron-triggered ROQ run."""
         self.ensure_one()

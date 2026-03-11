@@ -98,7 +98,7 @@ class RoqShipmentGroup(models.Model):
         'stock.warehouse', string='Destination Warehouses',
     )
     run_id = fields.Many2one(
-        'roq.forecast.run', string='Source ROQ Run', ondelete='cascade',
+        'roq.forecast.run', string='Source ROQ Run', ondelete='set null',
     )
     line_ids = fields.One2many('roq.shipment.group.line', 'group_id', string='Supplier Lines')
     notes = fields.Text(string='Notes')
