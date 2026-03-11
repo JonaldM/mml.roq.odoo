@@ -111,6 +111,10 @@ class ShipmentCard extends Component {
         onOpenRecord: Function,
     };
 
+    setup() {
+        this.dragging = useState({ value: false });
+    }
+
     get stateLabel() {
         const labels = {
             draft: "Draft", confirmed: "Confirmed", tendered: "Tendered",
@@ -127,7 +131,12 @@ class ShipmentCard extends Component {
 
     onDragStart(ev) {
         if (!this.isDraggable) { ev.preventDefault(); return; }
+        this.dragging.value = true;
         this.props.onDragStart(ev, this.props.record);
+    }
+
+    onDragEnd() {
+        this.dragging.value = false;
     }
 
     onClick() {
@@ -144,6 +153,7 @@ class CalendarDay extends Component {
         day: Object,
         records: Array,
         isDropTarget: Boolean,
+        draggingRecord: { optional: true },
         onDragStart: Function,
         onDragEnter: Function,
         onDragLeave: Function,
@@ -201,6 +211,11 @@ class ShipmentCalendarRenderer extends Component {
     }
 
     get weeks() { return buildMonthGrid(this.props.year, this.props.month); }
+
+    get draggingRecord() {
+        if (!this.drag.recordId) return null;
+        return this.props.records.find((r) => r.id === this.drag.recordId) || null;
+    }
 
     get monthLabel() {
         return new Date(this.props.year, this.props.month, 1)

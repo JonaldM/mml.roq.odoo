@@ -67,6 +67,7 @@
               day="day"
               records="recordsForDay(day.dateStr)"
               isDropTarget="dropTargetDateStr.value === day.dateStr"
+              draggingRecord="draggingRecord"
               onDragStart="(ev, rec) => this.onDragStart(ev, rec)"
               onDragEnter="(d) => this.onDragEnter(d)"
               onDragLeave="() => this.onDragLeave()"
@@ -102,6 +103,15 @@
             onOpenRecord="props.onOpenRecord"
           />
         </t>
+        <!-- Ghost preview — only shown in the active drop target cell -->
+        <t t-if="props.isDropTarget and props.draggingRecord">
+          <div
+            class="mml-sg-ghost-card"
+            t-att-class="'mml-sg-state-' + props.draggingRecord.state"
+          >
+            <span class="mml-sg-card-ref" t-esc="props.draggingRecord.name"/>
+          </div>
+        </t>
       </div>
     </div>
   </t>
@@ -113,10 +123,12 @@
       t-att-class="{
         'mml-sg-card--draggable': isDraggable,
         'mml-sg-card--live-eta': isLiveEta,
+        'mml-sg-card--is-dragging': dragging.value,
         ['mml-sg-state-' + props.record.state]: true
       }"
       t-att-draggable="isDraggable ? 'true' : 'false'"
       t-on-dragstart="onDragStart"
+      t-on-dragend="onDragEnd"
       t-on-click="onClick"
       t-att-title="props.record.name + ' — ' + stateLabel + (isLiveEta ? ' (live ETA)' : '')"
     >

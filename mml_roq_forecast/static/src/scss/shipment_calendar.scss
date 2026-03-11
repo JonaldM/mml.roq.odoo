@@ -714,19 +714,79 @@
     }
   }
 
-  // Drop target highlight during drag
-  &.mml-sg-cal-day--drop-target,
+  // Drop target highlight during drag — solid, unmissable
+  &.mml-sg-cal-day--drop-target {
+    background: rgba(3, 105, 161, 0.12) !important;
+    outline: 2px solid var(--nav-confirmed);
+    outline-offset: -2px;
+    box-shadow: inset 0 0 0 1px rgba(3, 105, 161, 0.25);
+  }
+
   &:focus-within {
-    background: rgba(3, 105, 161, 0.07);
-    outline: 2px dashed var(--nav-confirmed);
+    background: rgba(3, 105, 161, 0.04);
+    outline: 1px dashed var(--nav-confirmed);
     outline-offset: -2px;
   }
 }
 
-// Accept drop-target class from JS
+// ─── Dragging card — fade the source while it's being moved ──────────────────
+.mml-sg-card--is-dragging {
+  opacity: 0.35;
+  transform: scale(0.97);
+  pointer-events: none;
+}
+
+// ─── Ghost card — preview in the drop target cell ────────────────────────────
+.mml-sg-ghost-card {
+  position: relative;
+  border-radius: var(--nav-radius);
+  padding: 4px 6px 4px 9px;
+  border: 2px dashed var(--nav-confirmed);
+  background: rgba(3, 105, 161, 0.06);
+  opacity: 0.85;
+  pointer-events: none;
+
+  // Left accent bar inherits from state class
+  &::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    border-radius: var(--nav-radius) 0 0 var(--nav-radius);
+    background: var(--nav-confirmed);
+  }
+
+  // State-specific border and accent colours
+  &.mml-sg-state-draft {
+    border-color: var(--nav-draft);
+    &::before { background: var(--nav-draft); }
+  }
+  &.mml-sg-state-confirmed {
+    border-color: var(--nav-confirmed);
+    &::before { background: var(--nav-confirmed); }
+  }
+  &.mml-sg-state-tendered {
+    border-color: var(--nav-tendered);
+    &::before { background: var(--nav-tendered); }
+  }
+  &.mml-sg-state-booked {
+    border-color: var(--nav-booked);
+    &::before { background: var(--nav-booked); }
+  }
+
+  .mml-sg-card-ref {
+    font-family: var(--nav-font-mono);
+    font-size: 0.6875rem;
+    font-weight: 500;
+    color: var(--nav-text-muted);
+    letter-spacing: 0.02em;
+  }
+}
+
+// Accept drop-target class from JS (data attribute fallback)
 .mml-sg-cal-day[data-drop-active="true"] {
-  background: rgba(3, 105, 161, 0.07);
-  outline: 2px dashed var(--nav-confirmed);
+  background: rgba(3, 105, 161, 0.12) !important;
+  outline: 2px solid var(--nav-confirmed);
   outline-offset: -2px;
 }
 
@@ -953,13 +1013,6 @@
 .mml-sg-dialog-no-consolidation {
   font-size: 0.875rem;
   margin: 0;
-}
-
-// ─── Drop-target visual feedback (applied via data attribute in OWL) ──────────
-.mml-sg-cal-day[data-drop-target="true"] {
-  background: rgba(3, 105, 161, 0.08) !important;
-  outline: 2px dashed var(--nav-confirmed) !important;
-  outline-offset: -2px;
 }
 
 // ─── Print / Export tweaks ──────────────────────────────────────────────────
