@@ -318,7 +318,7 @@ class ShipmentCalendarRenderer extends Component {
         return this.props.records.filter((r) => {
             const anchor = r.freight_eta
                 ? r.freight_eta.slice(0, 10)
-                : r.target_delivery_date;
+                : (r.target_delivery_date || r.target_ship_date);
             return anchor === dateStr;
         });
     }
@@ -417,10 +417,13 @@ class ShipmentCalendarController extends Component {
         } else {
             const viewStart = new Date(this.state.year, this.state.month - 1, 1);
             const viewEnd = new Date(this.state.year, this.state.month + 2, 0);
+            const vsStr = formatDate(viewStart);
+            const veStr = formatDate(viewEnd);
             domain = [
                 ...this.domain,
-                ["target_delivery_date", ">=", formatDate(viewStart)],
-                ["target_delivery_date", "<=", formatDate(viewEnd)],
+                "|",
+                "&", ["target_delivery_date", ">=", vsStr], ["target_delivery_date", "<=", veStr],
+                "&", ["target_delivery_date", "=", false], "&", ["target_ship_date", ">=", vsStr], ["target_ship_date", "<=", veStr],
             ];
             fields = [
                 "name", "state", "origin_port", "container_type",
