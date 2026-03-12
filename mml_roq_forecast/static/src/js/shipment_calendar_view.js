@@ -285,6 +285,7 @@ class ShipmentCalendarRenderer extends Component {
         onToday: Function,
         onOpenRecord: Function,
         onDropRecord: Function,
+        onBackToYear: Function,
     };
 
     setup() {
@@ -370,7 +371,7 @@ class ShipmentCalendarRenderer extends Component {
 
 class ShipmentCalendarController extends Component {
     static template = "mml_roq_forecast.ShipmentCalendarController";
-    static components = { ShipmentCalendarRenderer };
+    static components = { ShipmentCalendarRenderer, ShipmentYearRenderer };
 
     setup() {
         this.orm = useService("orm");
@@ -383,6 +384,8 @@ class ShipmentCalendarController extends Component {
             month: now.getMonth(),
             records: [],
             loading: true,
+            zoomLevel: 'year',
+            yearOffset: 0,
         });
 
         onWillStart(() => this._loadRecords());
@@ -394,26 +397,43 @@ class ShipmentCalendarController extends Component {
 
     async _loadRecords() {
         this.state.loading = true;
-        // Fetch 3-month window around current view for smooth prev/next navigation
-        const viewStart = new Date(this.state.year, this.state.month - 1, 1);
-        const viewEnd = new Date(this.state.year, this.state.month + 2, 0);
+        let domain, fields;
 
-        const domain = [
-            ...this.domain,
-            ["target_delivery_date", ">=", formatDate(viewStart)],
-            ["target_delivery_date", "<=", formatDate(viewEnd)],
-        ];
+        if (this.state.zoomLevel === 'year') {
+            const now = new Date();
+            const base = new Date(
+                now.getFullYear(),
+                now.getMonth() + this.state.yearOffset * 12,
+                1
+            );
+            const end = new Date(base.getFullYear(), base.getMonth() + 12, 0);
+            domain = [
+                ...this.domain,
+                ["target_delivery_date", ">=", formatDate(base)],
+                ["target_delivery_date", "<=", formatDate(end)],
+            ];
+            fields = ["name", "state", "target_delivery_date", "total_cbm"];
+        } else {
+            const viewStart = new Date(this.state.year, this.state.month - 1, 1);
+            const viewEnd = new Date(this.state.year, this.state.month + 2, 0);
+            domain = [
+                ...this.domain,
+                ["target_delivery_date", ">=", formatDate(viewStart)],
+                ["target_delivery_date", "<=", formatDate(viewEnd)],
+            ];
+            fields = [
+                "name", "state", "origin_port", "container_type",
+                "fill_percentage", "destination_warehouse_ids",
+                "target_ship_date", "target_delivery_date",
+                "freight_eta", "freight_status", "consolidation_suggestion",
+            ];
+        }
 
         try {
             const records = await this.orm.searchRead(
                 "roq.shipment.group",
                 domain,
-                [
-                    "name", "state", "origin_port", "container_type",
-                    "fill_percentage", "destination_warehouse_ids",
-                    "target_ship_date", "target_delivery_date",
-                    "freight_eta", "freight_status", "consolidation_suggestion",
-                ],
+                fields,
                 { context: this.context }
             );
             this.state.records = records;
@@ -445,6 +465,28 @@ class ShipmentCalendarController extends Component {
             return this.state.records.filter((r) => suggestedNames.includes(r.name));
         }
         return [];
+    }
+
+    onDrillDown(year, month) {
+        this.state.zoomLevel = 'month';
+        this.state.year = year;
+        this.state.month = month;
+        this._loadRecords();
+    }
+
+    onBackToYear() {
+        this.state.zoomLevel = 'year';
+        this._loadRecords();
+    }
+
+    onPrevYear() {
+        this.state.yearOffset -= 1;
+        this._loadRecords();
+    }
+
+    onNextYear() {
+        this.state.yearOffset += 1;
+        this._loadRecords();
     }
 
     onOpenRecord(id) {
@@ -479,6 +521,7 @@ class ShipmentCalendarController extends Component {
         const now = new Date();
         this.state.year = now.getFullYear();
         this.state.month = now.getMonth();
+        this.state.yearOffset = 0;
         this._loadRecords();
     }
 }
