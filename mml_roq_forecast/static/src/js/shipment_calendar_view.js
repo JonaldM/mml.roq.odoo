@@ -264,9 +264,10 @@ class ShipmentYearRenderer extends Component {
 
     recordsForMonth(year, month) {
         const prefix = `${year}-${String(month + 1).padStart(2, "0")}`;
-        return this.props.records.filter(
-            r => r.target_delivery_date && r.target_delivery_date.startsWith(prefix)
-        );
+        return this.props.records.filter(r => {
+            const anchor = r.target_delivery_date || r.target_ship_date;
+            return anchor && anchor.startsWith(prefix);
+        });
     }
 }
 
@@ -409,10 +410,10 @@ class ShipmentCalendarController extends Component {
             const end = new Date(base.getFullYear(), base.getMonth() + 12, 0);
             domain = [
                 ...this.domain,
-                ["target_delivery_date", ">=", formatDate(base)],
-                ["target_delivery_date", "<=", formatDate(end)],
+                ["target_ship_date", ">=", formatDate(base)],
+                ["target_ship_date", "<=", formatDate(end)],
             ];
-            fields = ["name", "state", "target_delivery_date", "total_cbm"];
+            fields = ["name", "state", "target_delivery_date", "target_ship_date", "total_cbm"];
         } else {
             const viewStart = new Date(this.state.year, this.state.month - 1, 1);
             const viewEnd = new Date(this.state.year, this.state.month + 2, 0);
