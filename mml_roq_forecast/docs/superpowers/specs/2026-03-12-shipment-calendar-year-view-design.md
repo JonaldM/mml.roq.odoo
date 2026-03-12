@@ -88,7 +88,7 @@ MARCH 2026
 |------|------|--------|
 | `static/src/js/shipment_calendar_view.js` | Modify | Add `zoomLevel` to state; add `ShipmentYearRenderer` + `YearMonthCell` components; add `onDrillDown`, `onBackToYear`, `onPrevYear`, `onNextYear`; update `_loadRecords` to branch on zoom |
 | `static/src/xml/shipment_calendar.xml` | Modify | Add `ShipmentYearRenderer` and `YearMonthCell` templates; update `ShipmentCalendarController` template to conditionally render year vs month view and the correct header |
-| `static/src/scss/shipment_calendar.scss` | Modify | Add year grid styles: `.sc-year-grid`, `.sc-year-cell`, `.sc-year-cell-header`, `.sc-state-row`, state badge colours, hover/click states, empty cell style |
+| `static/src/scss/shipment_calendar.scss` | Modify | Add year grid styles: `.mml-sg-year-grid`, `.mml-sg-year-cell`, `.mml-sg-year-cell-header`, `.mml-sg-year-state-row`, state badge colours, hover/click states, empty cell style |
 
 **No changes to:** Python models, XML view definitions, `__manifest__.py`, security files, or tests (pure-Python service tests are unaffected; OWL component tests follow existing patterns).
 
