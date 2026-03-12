@@ -327,7 +327,7 @@ class ShipmentCalendarRenderer extends Component {
         this.drag.recordId = record.id;
         this.drag.originalDateStr = record.freight_eta
             ? record.freight_eta.slice(0, 10)
-            : record.target_delivery_date;
+            : (record.target_delivery_date || record.target_ship_date);
         ev.dataTransfer.effectAllowed = "move";
         ev.dataTransfer.setData("text/plain", String(record.id));
     }
