@@ -126,9 +126,15 @@ def _install_odoo_stubs():
     class TransientModel(Model):
         pass
 
+    class Constraint:
+        """Stub for models.Constraint (SQL constraints in Odoo 19)."""
+        def __init__(self, *args, **kwargs):
+            pass
+
     odoo_models.Model = Model
     odoo_models.AbstractModel = AbstractModel
     odoo_models.TransientModel = TransientModel
+    odoo_models.Constraint = Constraint
 
     # ---- odoo.api ----
     odoo_api = types.ModuleType('odoo.api')

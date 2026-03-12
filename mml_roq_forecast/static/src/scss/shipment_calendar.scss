@@ -1028,3 +1028,117 @@
     border: 1px solid currentColor !important;
   }
 }
+
+// ═══════════════════════════════════════════════════════════════════════════
+// YEAR OVERVIEW GRID
+// Rolling 12-month summary — click a cell to drill into day-level view.
+// ═══════════════════════════════════════════════════════════════════════════
+
+.mml-sg-year {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: var(--nav-canvas);
+}
+
+.mml-sg-year-grid {
+  flex: 1;
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+  padding: 16px;
+  overflow-y: auto;
+}
+
+.mml-sg-year-cell {
+  background: var(--nav-surface);
+  border: 1.5px solid var(--nav-border);
+  border-radius: var(--nav-radius-lg);
+  padding: 14px 16px;
+  cursor: pointer;
+  transition: box-shadow 0.12s, border-color 0.12s, transform 0.1s;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  min-height: 140px;
+  box-shadow: var(--nav-shadow);
+
+  &:hover {
+    border-color: var(--nav-confirmed);
+    box-shadow: var(--nav-shadow-lg);
+    transform: translateY(-1px);
+  }
+
+  &.mml-sg-year-cell--empty {
+    opacity: 0.55;
+    background: var(--nav-canvas);
+  }
+}
+
+.mml-sg-year-cell-header {
+  font-family: var(--nav-font-body);
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  color: var(--nav-text-muted);
+  border-bottom: 1.5px solid var(--nav-grid);
+  padding-bottom: 8px;
+}
+
+.mml-sg-year-cell-empty {
+  font-family: var(--nav-font-body);
+  font-size: 0.8125rem;
+  color: var(--nav-text-muted);
+  font-style: italic;
+  margin-top: 4px;
+}
+
+.mml-sg-year-state-rows {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  flex: 1;
+}
+
+.mml-sg-year-state-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.mml-sg-year-state-badge {
+  font-family: var(--nav-font-body);
+  font-size: 0.6875rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  padding: 1px 6px;
+  border-radius: 2px;
+  color: #fff;
+  min-width: 72px;
+  text-align: center;
+
+  &.mml-sg-state-badge--draft     { background: var(--nav-draft); color: var(--nav-text); }
+  &.mml-sg-state-badge--confirmed { background: var(--nav-confirmed); }
+  &.mml-sg-state-badge--tendered  { background: var(--nav-tendered); }
+  &.mml-sg-state-badge--booked    { background: var(--nav-booked); }
+  &.mml-sg-state-badge--delivered { background: var(--nav-delivered); opacity: 0.8; }
+  &.mml-sg-state-badge--cancelled { background: #9ca3af; opacity: 0.6; }
+}
+
+.mml-sg-year-state-count {
+  font-family: var(--nav-font-mono);
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--nav-text);
+}
+
+.mml-sg-year-cell-footer {
+  font-family: var(--nav-font-body);
+  font-size: 0.6875rem;
+  color: var(--nav-text-muted);
+  border-top: 1px solid var(--nav-grid);
+  padding-top: 6px;
+  margin-top: auto;
+}
