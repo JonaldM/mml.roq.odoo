@@ -59,7 +59,6 @@
                             <!-- Product breakdown — grouped by supplier, collapsible -->
                             <field name="line_ids"
                                    domain="[('roq_containerized', '&gt;', 0), ('abc_tier', '!=', 'D')]"
-                                   context="{'group_by': 'supplier_id'}"
                                    readonly="1">
                                 <list string="Products by Supplier"
                                       default_order="supplier_id, product_id"
