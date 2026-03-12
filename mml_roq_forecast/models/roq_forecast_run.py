@@ -1,4 +1,5 @@
 import logging
+from dateutil.relativedelta import relativedelta
 from odoo import models, fields, api, exceptions, _
 
 _logger = logging.getLogger(__name__)
@@ -172,3 +173,82 @@ class RoqForecastRun(models.Model):
             source_module='mml_roq_forecast',
             payload={'run_ref': self.name, 'sku_count': len(self.line_ids)},
         )
+
+    def get_demand_forecast(self, date_start, horizon_months):
+        """
+        Return demand data for the financial forecast engine.
+
+        Called by mml_forecast_financial.forecast.generate.wizard when this module
+        is installed. Translates ROQ per-SKU per-warehouse forecast rates into the
+        flat monthly demand list the financial wizard expects.
+
+        Monthly units = forecasted_weekly_demand * (365 / 12 / 7) summed across
+        all warehouses for each product. Tier-D (dormant) products are excluded.
+        partner_id is set to 0 — ROQ has no customer dimension, so revenue lines
+        fall back to product.list_price for sell price.
+
+        Returns:
+            list of dicts: product_id, partner_id, period_start, period_label,
+                           forecast_units, brand, category
+        """
+        self.ensure_one()
+        WEEKS_PER_MONTH = 365.0 / 12.0 / 7.0
+
+        # Build month buckets
+        months = []
+        current = date_start.replace(day=1)
+        for _ in range(horizon_months):
+            months.append((current, current.strftime('%Y-%m')))
+            current += relativedelta(months=1)
+
+        # Sum forecasted_weekly_demand across warehouses per product (skip dormant)
+        product_demand = {}
+        for line in self.line_ids:
+            if line.abc_tier == 'D':
+                continue
+            weekly = line.forecasted_weekly_demand or line.avg_weekly_demand or 0.0
+            if weekly <= 0:
+                continue
+            pid = line.product_id.id
+            if pid not in product_demand:
+                product_demand[pid] = {'product': line.product_id, 'weekly': 0.0}
+            product_demand[pid]['weekly'] += weekly
+
+        if not product_demand:
+            _logger.warning(
+                'ROQ run %s has no non-dormant lines with positive demand forecast',
+                self.name,
+            )
+            return []
+
+        result = []
+        for pid, data in product_demand.items():
+            product = data['product']
+            monthly_units = data['weekly'] * WEEKS_PER_MONTH
+
+            tmpl = product.product_tmpl_id
+            brand = getattr(tmpl, 'x_brand', None) or ''
+            if not brand:
+                categ = product.categ_id
+                while categ and categ.parent_id:
+                    categ = categ.parent_id
+                brand = categ.name if categ else 'Unknown'
+
+            category = product.categ_id.name if product.categ_id else 'Uncategorised'
+
+            for period_start, period_label in months:
+                result.append({
+                    'product_id': pid,
+                    'partner_id': 0,
+                    'period_start': period_start,
+                    'period_label': period_label,
+                    'forecast_units': monthly_units,
+                    'brand': brand,
+                    'category': category,
+                })
+
+        _logger.info(
+            'ROQ run %s: get_demand_forecast returned %d lines (%d products × %d months)',
+            self.name, len(result), len(product_demand), horizon_months,
+        )
+        return result
