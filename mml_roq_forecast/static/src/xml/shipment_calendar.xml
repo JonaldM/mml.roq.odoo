@@ -10,6 +10,16 @@
           <span>Loading shipments…</span>
         </div>
       </t>
+      <t t-elif="state.zoomLevel === 'year'">
+        <ShipmentYearRenderer
+          records="state.records"
+          yearOffset="state.yearOffset"
+          onDrillDown="(y, m) => this.onDrillDown(y, m)"
+          onPrevYear="() => this.onPrevYear()"
+          onNextYear="() => this.onNextYear()"
+          onToday="() => this.onToday()"
+        />
+      </t>
       <t t-else="">
         <ShipmentCalendarRenderer
           records="state.records"
@@ -20,6 +30,7 @@
           onToday="() => this.onToday()"
           onOpenRecord="(id) => this.onOpenRecord(id)"
           onDropRecord="(id, dateStr) => this.onDropRecord(id, dateStr)"
+          onBackToYear="() => this.onBackToYear()"
         />
       </t>
     </div>
@@ -32,6 +43,9 @@
       <!-- Header: navigation + month label + legend -->
       <div class="mml-sg-cal-header">
         <div class="mml-sg-cal-nav">
+          <button class="mml-sg-cal-btn" t-on-click="props.onBackToYear" title="Back to year overview">
+            <span class="fa fa-th-large me-1"/>Year
+          </button>
           <button class="mml-sg-cal-btn" t-on-click="props.onPrevMonth" title="Previous month">
             <span class="fa fa-chevron-left"/>
           </button>
