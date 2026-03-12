@@ -184,6 +184,92 @@ class CalendarDay extends Component {
     }
 }
 
+// ─── Year Month Cell ──────────────────────────────────────────────────────
+
+const STATE_ORDER = ['draft', 'confirmed', 'tendered', 'booked', 'delivered', 'cancelled'];
+const STATE_LABELS = {
+    draft: 'Draft', confirmed: 'Confirmed', tendered: 'Tendered',
+    booked: 'Booked', delivered: 'Delivered', cancelled: 'Cancelled',
+};
+
+class YearMonthCell extends Component {
+    static template = "mml_roq_forecast.YearMonthCell";
+    static props = {
+        year: Number,
+        month: Number,      // 0-based
+        records: Array,
+        onDrillDown: Function,
+    };
+
+    get label() {
+        return new Date(this.props.year, this.props.month, 1)
+            .toLocaleDateString("en-NZ", { month: "long", year: "numeric" });
+    }
+
+    get stateRows() {
+        const counts = {};
+        for (const r of this.props.records) {
+            counts[r.state] = (counts[r.state] || 0) + 1;
+        }
+        return STATE_ORDER
+            .filter(s => counts[s] > 0)
+            .map(s => ({ state: s, count: counts[s], label: STATE_LABELS[s] }));
+    }
+
+    get totalCbm() {
+        const sum = this.props.records.reduce((s, r) => s + (r.total_cbm || 0), 0);
+        return sum > 0 ? sum.toFixed(1) : null;
+    }
+
+    get isEmpty() {
+        return this.props.records.length === 0;
+    }
+
+    onClick() {
+        this.props.onDrillDown(this.props.year, this.props.month);
+    }
+}
+
+// ─── Year Renderer ────────────────────────────────────────────────────────
+
+class ShipmentYearRenderer extends Component {
+    static template = "mml_roq_forecast.ShipmentYearRenderer";
+    static components = { YearMonthCell };
+    static props = {
+        records: Array,
+        yearOffset: Number,
+        onDrillDown: Function,
+        onPrevYear: Function,
+        onNextYear: Function,
+        onToday: Function,
+    };
+
+    get months() {
+        const now = new Date();
+        const base = new Date(now.getFullYear(), now.getMonth() + this.props.yearOffset * 12, 1);
+        const result = [];
+        for (let i = 0; i < 12; i++) {
+            const d = new Date(base.getFullYear(), base.getMonth() + i, 1);
+            result.push({ year: d.getFullYear(), month: d.getMonth() });
+        }
+        return result;
+    }
+
+    get rangeLabel() {
+        const ms = this.months;
+        const fmt = m => new Date(m.year, m.month, 1)
+            .toLocaleDateString("en-NZ", { month: "short", year: "numeric" });
+        return `${fmt(ms[0])} – ${fmt(ms[11])}`;
+    }
+
+    recordsForMonth(year, month) {
+        const prefix = `${year}-${String(month + 1).padStart(2, "0")}`;
+        return this.props.records.filter(
+            r => r.target_delivery_date && r.target_delivery_date.startsWith(prefix)
+        );
+    }
+}
+
 // ─── Shipment Calendar Renderer ───────────────────────────────────────────────
 
 class ShipmentCalendarRenderer extends Component {
