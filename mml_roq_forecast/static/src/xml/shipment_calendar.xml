@@ -212,4 +212,67 @@
     </Dialog>
   </t>
 
+  <!-- ─── Year Overview Renderer ───────────────────────────────────────── -->
+  <t t-name="mml_roq_forecast.ShipmentYearRenderer">
+    <div class="mml-sg-year">
+      <div class="mml-sg-cal-header">
+        <div class="mml-sg-cal-nav">
+          <button class="mml-sg-cal-btn" t-on-click="props.onPrevYear" title="Previous 12 months">
+            <span class="fa fa-chevron-left"/>
+          </button>
+          <button class="mml-sg-cal-btn mml-sg-cal-btn-today" t-on-click="props.onToday">
+            Today
+          </button>
+          <button class="mml-sg-cal-btn" t-on-click="props.onNextYear" title="Next 12 months">
+            <span class="fa fa-chevron-right"/>
+          </button>
+        </div>
+        <h2 class="mml-sg-cal-month-label" t-esc="rangeLabel"/>
+      </div>
+      <div class="mml-sg-year-grid">
+        <t t-foreach="months" t-as="m" t-key="m.year + '-' + m.month">
+          <YearMonthCell
+            year="m.year"
+            month="m.month"
+            records="recordsForMonth(m.year, m.month)"
+            onDrillDown="props.onDrillDown"
+          />
+        </t>
+      </div>
+    </div>
+  </t>
+
+  <!-- ─── Year Month Cell ───────────────────────────────────────────────── -->
+  <t t-name="mml_roq_forecast.YearMonthCell">
+    <div
+      class="mml-sg-year-cell"
+      t-att-class="{ 'mml-sg-year-cell--empty': isEmpty }"
+      t-on-click="onClick"
+      title="Click to view day-level calendar"
+    >
+      <div class="mml-sg-year-cell-header" t-esc="label"/>
+      <t t-if="isEmpty">
+        <span class="mml-sg-year-cell-empty">No shipments</span>
+      </t>
+      <t t-else="">
+        <div class="mml-sg-year-state-rows">
+          <t t-foreach="stateRows" t-as="row" t-key="row.state">
+            <div class="mml-sg-year-state-row">
+              <span
+                class="mml-sg-year-state-badge"
+                t-att-class="'mml-sg-state-badge--' + row.state"
+                t-esc="row.label"
+              />
+              <span class="mml-sg-year-state-count" t-esc="row.count"/>
+            </div>
+          </t>
+        </div>
+        <div class="mml-sg-year-cell-footer">
+          <t t-esc="props.records.length"/> shipments
+          <t t-if="totalCbm"> · <t t-esc="totalCbm"/> CBM</t>
+        </div>
+      </t>
+    </div>
+  </t>
+
 </templates>
