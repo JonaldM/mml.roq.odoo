@@ -120,15 +120,11 @@ class RoqRaisePoWizard(models.TransientModel):
             if sg_line and sg_line.group_id and 'po_ids' in sg_line.group_id._fields:
                 sg_line.group_id.sudo().write({'po_ids': [(4, pid) for pid in po_ids]})
 
-        # Return action opening the raised PO(s)
-        if len(po_ids) == 1:
-            return {
-                'type': 'ir.actions.act_window',
-                'res_model': 'purchase.order',
-                'res_id': po_ids[0],
-                'view_mode': 'form',
-                'target': 'current',
-            }
+        # Show notification and open POs in list view (avoids custom form view fields
+        # from uninstalled modules such as custom_purchase_containers).
+        po_names = ', '.join(
+            self.env['purchase.order'].browse(po_ids).mapped('name')
+        )
         return {
             'type': 'ir.actions.act_window',
             'res_model': 'purchase.order',
@@ -136,6 +132,7 @@ class RoqRaisePoWizard(models.TransientModel):
             'domain': [('id', 'in', po_ids)],
             'name': f'Draft POs — {self.supplier_id.name}',
             'target': 'current',
+            'views': [(False, 'list'), (False, 'form')],
         }
 
 
