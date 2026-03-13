@@ -311,4 +311,114 @@
     </div>
   </t>
 
+  <!-- ─── Week View Renderer ────────────────────────────────────────────── -->
+  <t t-name="mml_roq_forecast.ShipmentWeekRenderer">
+    <div class="mml-sg-week-view">
+
+      <div class="mml-sg-cal-header">
+        <div class="mml-sg-cal-nav">
+          <button class="mml-sg-cal-btn" t-on-click="props.onBackToYear">
+            <span class="fa fa-th-large me-1"/>Year
+          </button>
+          <button class="mml-sg-cal-btn" t-on-click="props.onSwitchToMonth">
+            <span class="fa fa-calendar me-1"/>Month
+          </button>
+          <button class="mml-sg-cal-btn" t-on-click="props.onPrevQuarter">
+            <span class="fa fa-chevron-left"/>
+          </button>
+          <button class="mml-sg-cal-btn mml-sg-cal-btn-today" t-on-click="props.onToday">
+            Today
+          </button>
+          <button class="mml-sg-cal-btn" t-on-click="props.onNextQuarter">
+            <span class="fa fa-chevron-right"/>
+          </button>
+        </div>
+        <h2 class="mml-sg-cal-month-label" t-esc="props.quarterLabel"/>
+        <div class="mml-sg-cal-legend">
+          <span class="mml-sg-legend-item mml-sg-state-draft">Draft</span>
+          <span class="mml-sg-legend-item mml-sg-state-confirmed">Confirmed</span>
+          <span class="mml-sg-legend-item mml-sg-state-tendered">Tendered</span>
+          <span class="mml-sg-legend-item mml-sg-state-booked">Booked</span>
+          <span class="mml-sg-legend-item mml-sg-state-delivered">Delivered</span>
+        </div>
+      </div>
+
+      <div class="mml-sg-week-list" t-ref="weekList">
+        <!-- Top sentinel for IntersectionObserver lazy loading -->
+        <div class="mml-sg-week-sentinel" t-ref="sentinelTop"/>
+
+        <t t-foreach="weeks" t-as="wk" t-key="wk.getTime()">
+          <WeekRow
+            weekMonday="wk"
+            records="recordsForWeek(wk)"
+            isCurrentWeek="isCurrentWeek(wk)"
+            loadStatus="loadStatusForWeek(wk)"
+            loadPct="loadPctForWeek(wk)"
+            draggingRecord="draggingRecord"
+            onDragStart="(ev, rec) => this.onDragStart(ev, rec)"
+            onOpenRecord="props.onOpenRecord"
+            onDropRow="(mon) => this.onDropRow(mon)"
+          />
+        </t>
+
+        <!-- Bottom sentinel for IntersectionObserver lazy loading -->
+        <div class="mml-sg-week-sentinel" t-ref="sentinelBottom"/>
+      </div>
+
+    </div>
+  </t>
+
+  <!-- ─── Week Row ──────────────────────────────────────────────────────── -->
+  <t t-name="mml_roq_forecast.WeekRow">
+    <div
+      class="mml-sg-week-row"
+      t-att-class="{
+        'mml-sg-week-row--current': props.isCurrentWeek,
+        'mml-sg-week-row--drop-active': dropActive.value
+      }"
+      t-on-dragover="onDragOver"
+      t-on-dragenter="onDragEnter"
+      t-on-dragleave="onDragLeave"
+      t-on-drop="onDrop"
+    >
+      <div class="mml-sg-week-gutter">
+        <div class="mml-sg-week-num"
+          t-att-class="{ 'mml-sg-week-num--current': props.isCurrentWeek }"
+          t-esc="'W' + weekNumber"/>
+        <div class="mml-sg-week-range" t-esc="weekRange"/>
+        <t t-if="props.loadStatus !== 'none' and props.loadPct > 0">
+          <div class="mml-sg-week-load-bar-wrap">
+            <div
+              class="mml-sg-week-load-bar"
+              t-att-class="'mml-sg-week-load-bar--' + props.loadStatus"
+              t-att-style="loadBarStyle"
+            />
+          </div>
+          <div class="mml-sg-week-load-pct"
+            t-att-class="'mml-sg-week-load-pct--' + props.loadStatus"
+            t-esc="Math.round(props.loadPct) + '%'"/>
+        </t>
+      </div>
+
+      <div class="mml-sg-week-cards">
+        <t t-foreach="props.records" t-as="rec" t-key="rec.id">
+          <ShipmentCard
+            record="rec"
+            onDragStart="props.onDragStart"
+            onOpenRecord="props.onOpenRecord"
+          />
+        </t>
+        <t t-if="dropActive.value and props.draggingRecord">
+          <div class="mml-sg-ghost-card"
+            t-att-class="'mml-sg-state-' + props.draggingRecord.state">
+            <span class="mml-sg-card-ref" t-esc="props.draggingRecord.name"/>
+          </div>
+        </t>
+        <t t-if="!props.records.length and !dropActive.value">
+          <span class="mml-sg-week-empty-hint">No shipments — drop here</span>
+        </t>
+      </div>
+    </div>
+  </t>
+
 </templates>
