@@ -186,30 +186,43 @@ class RoqShipmentGroup(models.Model):
                 if rec.id not in old_dates:
                     continue
                 old_delivery = old_dates[rec.id]
-                if old_delivery == new_delivery:
+                if old_delivery and old_delivery == new_delivery:
                     continue
 
-                delta = new_delivery - old_delivery
+                # Compute delta only when there was a prior delivery date.
+                # old_delivery is False when the field was previously unset
+                # (Odoo returns False for null Date fields), and datetime.date - False
+                # raises TypeError.
+                if old_delivery:
+                    delta = new_delivery - old_delivery
 
-                # Shift target_ship_date by same delta to preserve transit window
-                if rec.target_ship_date:
-                    rec.target_ship_date = rec.target_ship_date + delta
+                    # Shift target_ship_date by same delta to preserve transit window
+                    if rec.target_ship_date:
+                        rec.target_ship_date = rec.target_ship_date + delta
+                else:
+                    delta = None
 
                 # Re-evaluate OOS risk flags on line records
                 for line in rec.line_ids:
                     line.oos_risk_flag = line.projected_inventory_at_delivery < 0
 
                 # Chatter audit trail
-                delta_days = delta.days
-                direction = 'pushed out' if delta_days > 0 else 'pulled forward'
-                rec.message_post(
-                    body=(
-                        f'Shipment rescheduled: delivery {direction} by '
-                        f'{abs(delta_days)} day(s) '
-                        f'({old_delivery} → {new_delivery}).'
-                    ),
-                    message_type='notification',
-                )
+                if delta:
+                    delta_days = delta.days
+                    direction = 'pushed out' if delta_days > 0 else 'pulled forward'
+                    rec.message_post(
+                        body=(
+                            f'Shipment rescheduled: delivery {direction} by '
+                            f'{abs(delta_days)} day(s) '
+                            f'({old_delivery} → {new_delivery}).'
+                        ),
+                        message_type='notification',
+                    )
+                else:
+                    rec.message_post(
+                        body=f'Delivery date set to {new_delivery}.',
+                        message_type='notification',
+                    )
 
                 # Consolidation proximity check for significant shifts.
                 # NOTE: Assigning rec.consolidation_suggestion here triggers a second
@@ -223,7 +236,7 @@ class RoqShipmentGroup(models.Model):
                         'roq.calendar.reschedule_threshold_days', default=5
                     )
                 )
-                if abs(delta.days) > threshold:
+                if delta and abs(delta.days) > threshold:
                     candidates = rec._find_consolidation_candidates()
                     if candidates:
                         rec.consolidation_suggestion = ', '.join(

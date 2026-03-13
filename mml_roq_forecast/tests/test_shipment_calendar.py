@@ -110,6 +110,30 @@ class TestRescheduleWrite(TransactionCase):
         self.group.write({'target_delivery_date': date(2026, 7, 15)})
         self.assertEqual(self.group.target_ship_date, original_ship)
 
+    def test_drag_to_date_when_no_prior_delivery_date(self):
+        """Setting delivery date on a group that had none must not raise TypeError.
+
+        Regression: old_delivery is False (Odoo null Date) when field was never
+        set. The subtraction new_delivery - False raises:
+          unsupported operand type(s) for -: 'datetime.date' and 'bool'
+        """
+        group_no_date = self.env['roq.shipment.group'].create({
+            'origin_port': 'CNSHA',
+            'destination_port': 'NZAKL',
+            'container_type': '40GP',
+            'target_ship_date': date(2026, 6, 1),
+            # target_delivery_date intentionally omitted — stays False
+            'state': 'draft',
+        })
+        self.assertFalse(group_no_date.target_delivery_date)
+        # Must not raise
+        group_no_date.write({'target_delivery_date': date(2026, 7, 15)})
+        self.assertEqual(group_no_date.target_delivery_date, date(2026, 7, 15))
+        # ship date should be unchanged (no delta to apply)
+        self.assertEqual(group_no_date.target_ship_date, date(2026, 6, 1))
+        # chatter message should still be posted
+        self.assertTrue(group_no_date.message_ids)
+
 
 class TestConsolidationSuggestion(TransactionCase):
 
