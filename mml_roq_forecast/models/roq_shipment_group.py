@@ -202,10 +202,6 @@ class RoqShipmentGroup(models.Model):
                 else:
                     delta = None
 
-                # Re-evaluate OOS risk flags on line records
-                for line in rec.line_ids:
-                    line.oos_risk_flag = line.projected_inventory_at_delivery < 0
-
                 # Chatter audit trail
                 if delta:
                     delta_days = delta.days
