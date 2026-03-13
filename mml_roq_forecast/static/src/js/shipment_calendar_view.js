@@ -13,7 +13,7 @@
  *   - Maritime "Navigation Chart" design language
  */
 
-import { Component, useState, onWillStart, onWillUpdateProps } from "@odoo/owl";
+import { Component, useState, useRef, onMounted, onWillUnmount, onWillStart, onWillUpdateProps } from "@odoo/owl";
 import { registry } from "@web/core/registry";
 import { useService } from "@web/core/utils/hooks";
 import { Dialog } from "@web/core/dialog/dialog";
@@ -290,6 +290,252 @@ class YearMonthCell extends Component {
     }
 }
 
+// ─── Week Row ──────────────────────────────────────────────────────────────────
+
+class WeekRow extends Component {
+    static template = "mml_roq_forecast.WeekRow";
+    static components = { ShipmentCard };
+    static props = {
+        weekMonday: Object,         // JS Date — Monday of this ISO week
+        records: Array,
+        isCurrentWeek: Boolean,
+        loadStatus: String,         // 'green' | 'amber' | 'red' | 'none'
+        loadPct: Number,
+        draggingRecord: { optional: true },
+        onDragStart: Function,
+        onOpenRecord: Function,
+        onDropRow: Function,        // (weekMonday: Date) => void
+    };
+
+    setup() {
+        this.dropActive = useState({ value: false });
+    }
+
+    get weekNumber() { return isoWeekNumber(this.props.weekMonday); }
+
+    get weekRange() {
+        const end = new Date(this.props.weekMonday);
+        end.setDate(end.getDate() + 6);
+        return `${shortDate(this.props.weekMonday)} – ${shortDate(end)}`;
+    }
+
+    get loadBarStyle() {
+        const pct = Math.min(this.props.loadPct || 0, 100);
+        return pct ? `width: ${pct}%` : '';
+    }
+
+    onDragOver(ev) {
+        ev.preventDefault();
+        ev.dataTransfer.dropEffect = "move";
+    }
+
+    onDragEnter(ev) {
+        ev.preventDefault();
+        this.dropActive.value = true;
+    }
+
+    onDragLeave(ev) {
+        if (!ev.currentTarget.contains(ev.relatedTarget)) {
+            this.dropActive.value = false;
+        }
+    }
+
+    onDrop(ev) {
+        ev.preventDefault();
+        this.dropActive.value = false;
+        // All logic (no-op check, ORM write, dialog) lives in the renderer.
+        this.props.onDropRow(this.props.weekMonday);
+    }
+}
+
+// ─── Week Renderer ─────────────────────────────────────────────────────────────
+
+class ShipmentWeekRenderer extends Component {
+    static template = "mml_roq_forecast.ShipmentWeekRenderer";
+    static components = { WeekRow };
+    static props = {
+        records: Array,
+        quarterLabel: String,
+        quarterOffset: Number,
+        onPrevQuarter: Function,
+        onNextQuarter: Function,
+        onToday: Function,
+        onOpenRecord: Function,
+        onDropRecord: Function,     // controller callback: (id, dateStr) => Promise<candidates[]>
+        onBackToYear: Function,
+        onSwitchToMonth: Function,
+    };
+
+    setup() {
+        this.dialogs = useService("dialog");
+        this.orm = useService("orm");
+        this.drag = useState({ recordId: null, originalAnchorDateStr: null });
+        this.weekLoadData = useState({ value: {} });
+        this.sentinelTop = useRef("sentinelTop");
+        this.sentinelBottom = useRef("sentinelBottom");
+        this._intersectionObs = null;
+
+        onWillStart(() => this._loadWeekLoads(this.props.records));
+
+        onWillUpdateProps((next) => {
+            if (next.records !== this.props.records || next.quarterOffset !== this.props.quarterOffset) {
+                this._loadWeekLoads(next.records);
+            }
+        });
+
+        onMounted(() => {
+            this._intersectionObs = new IntersectionObserver(
+                (entries) => {
+                    for (const entry of entries) {
+                        if (!entry.isIntersecting) continue;
+                        if (entry.target === this.sentinelTop.el) {
+                            this.props.onPrevQuarter();
+                        } else if (entry.target === this.sentinelBottom.el) {
+                            this.props.onNextQuarter();
+                        }
+                    }
+                },
+                { threshold: 0.1 }
+            );
+            if (this.sentinelTop.el) this._intersectionObs.observe(this.sentinelTop.el);
+            if (this.sentinelBottom.el) this._intersectionObs.observe(this.sentinelBottom.el);
+        });
+
+        onWillUnmount(() => {
+            if (this._intersectionObs) {
+                this._intersectionObs.disconnect();
+                this._intersectionObs = null;
+            }
+        });
+    }
+
+    // ── Helpers ──
+
+    /** Anchor chain used for bucketing: freight_eta → delivery → ship */
+    _anchor(rec) {
+        return rec.freight_eta
+            ? rec.freight_eta.slice(0, 10)
+            : (rec.target_delivery_date || rec.target_ship_date);
+    }
+
+    /** Resolve display year/quarter from quarterOffset prop. */
+    _displayQuarter() {
+        const now = new Date();
+        return resolveQuarter(
+            now.getFullYear(),
+            Math.floor(now.getMonth() / 3) + 1,
+            this.props.quarterOffset
+        );
+    }
+
+    // ── Computed ──
+
+    /** 15 week Monday Dates covering the displayed quarter (from quarterWeeks helper). */
+    get weeks() {
+        const { year, quarter } = this._displayQuarter();
+        return quarterWeeks(year, quarter);
+    }
+
+    get draggingRecord() {
+        if (!this.drag.recordId) return null;
+        return this.props.records.find(r => r.id === this.drag.recordId) || null;
+    }
+
+    recordsForWeek(monday) {
+        const lo = formatDate(monday);
+        const hi = formatDate(new Date(monday.getTime() + 6 * 86400000));
+        return this.props.records.filter(r => {
+            const a = this._anchor(r);
+            return a && a >= lo && a <= hi;
+        });
+    }
+
+    isCurrentWeek(monday) {
+        const today = formatDate(new Date());
+        const lo = formatDate(monday);
+        const hi = formatDate(new Date(monday.getTime() + 6 * 86400000));
+        return today >= lo && today <= hi;
+    }
+
+    loadStatusForWeek(monday) {
+        return (this.weekLoadData.value[formatDate(monday)] || {}).status || 'none';
+    }
+
+    loadPctForWeek(monday) {
+        return (this.weekLoadData.value[formatDate(monday)] || {}).pct || 0;
+    }
+
+    // ── Drag ──
+
+    onDragStart(ev, record) {
+        if (!["draft", "confirmed"].includes(record.state)) {
+            ev.preventDefault();
+            return;
+        }
+        this.drag.recordId = record.id;
+        this.drag.originalAnchorDateStr = this._anchor(record);
+        ev.dataTransfer.effectAllowed = "move";
+        ev.dataTransfer.setData("text/plain", String(record.id));
+    }
+
+    async onDropRow(targetMonday) {
+        const { recordId, originalAnchorDateStr } = this.drag;
+        this.drag.recordId = null;
+        this.drag.originalAnchorDateStr = null;
+
+        if (!recordId || !originalAnchorDateStr) return;
+
+        const targetMondayStr = formatDate(targetMonday);
+
+        // Same-week no-op: both anchors resolve to the same Monday → nothing to do.
+        if (isoWeekMonday(parseDate(originalAnchorDateStr)) === targetMondayStr) return;
+
+        const record = this.props.records.find(r => r.id === recordId);
+        if (!record) return;
+
+        const candidates = await this.props.onDropRecord(recordId, targetMondayStr);
+
+        this.dialogs.add(RescheduleDialog, {
+            record,
+            oldDate: parseDate(originalAnchorDateStr),
+            newDate: parseDate(targetMondayStr),
+            candidates: candidates || [],
+        });
+    }
+
+    // ── Load bar ──
+
+    async _loadWeekLoads(records) {
+        const warehouseIds = [...new Set(
+            records.flatMap(r => r.destination_warehouse_ids || [])
+        )];
+        if (!warehouseIds.length) { this.weekLoadData.value = {}; return; }
+
+        const mondayStrs = [...new Set(
+            this.weeks.map(w => formatDate(w))
+        )];
+
+        const STATUS_ORDER = { none: -1, green: 0, amber: 1, red: 2 };
+        const merged = {};
+
+        for (const warehouseId of warehouseIds) {
+            const data = await this.orm.call(
+                'roq.warehouse.week.load',
+                'get_loads_for_weeks',
+                [warehouseId, mondayStrs],
+            );
+            for (const [wk, load] of Object.entries(data)) {
+                if (!merged[wk] ||
+                    STATUS_ORDER[load.status] > STATUS_ORDER[merged[wk].status]) {
+                    merged[wk] = load;
+                }
+            }
+        }
+
+        this.weekLoadData.value = merged;
+    }
+}
+
 // ─── Year Renderer ────────────────────────────────────────────────────────
 
 class ShipmentYearRenderer extends Component {
@@ -434,7 +680,7 @@ class ShipmentCalendarRenderer extends Component {
 
 class ShipmentCalendarController extends Component {
     static template = "mml_roq_forecast.ShipmentCalendarController";
-    static components = { ShipmentCalendarRenderer, ShipmentYearRenderer };
+    static components = { ShipmentCalendarRenderer, ShipmentYearRenderer, ShipmentWeekRenderer };
 
     setup() {
         this.orm = useService("orm");
