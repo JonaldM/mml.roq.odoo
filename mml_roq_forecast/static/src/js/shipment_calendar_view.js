@@ -46,6 +46,66 @@ function daysDelta(from, to) {
     return Math.round((to.getTime() - from.getTime()) / 86400000);
 }
 
+/**
+ * Return the Monday of the ISO week containing `d`, as "YYYY-MM-DD".
+ * JS getDay() returns 0=Sun; ISO week starts Monday.
+ */
+function isoWeekMonday(d) {
+    const dt = new Date(d);
+    const day = dt.getDay();
+    const diff = day === 0 ? -6 : 1 - day;
+    dt.setDate(dt.getDate() + diff);
+    return formatDate(dt);
+}
+
+/** Return the ISO week number (1–53) for a given Date. */
+function isoWeekNumber(d) {
+    const dt = new Date(d);
+    dt.setHours(0, 0, 0, 0);
+    dt.setDate(dt.getDate() + 3 - ((dt.getDay() + 6) % 7));
+    const week1 = new Date(dt.getFullYear(), 0, 4);
+    return (
+        1 + Math.round(
+            ((dt.getTime() - week1.getTime()) / 86400000 -
+                3 + ((week1.getDay() + 6) % 7)) / 7
+        )
+    );
+}
+
+/**
+ * Given a year and 1-based quarter (1–4) and a quarterOffset integer,
+ * compute the effective display year and quarter after applying the offset.
+ * Returns { year, quarter }.
+ */
+function resolveQuarter(baseYear, baseQuarter, quarterOffset) {
+    let total = (baseYear * 4 + baseQuarter - 1) + quarterOffset;
+    return {
+        year: Math.floor(total / 4),
+        quarter: (total % 4) + 1,
+    };
+}
+
+/**
+ * Return 15 Monday Date objects for a quarter: 1 buffer week before Q start,
+ * 13 weeks of the quarter, 1 buffer week after Q end.
+ */
+function quarterWeeks(year, quarter) {
+    const monthStart = (quarter - 1) * 3;
+    const firstOfMonth = new Date(year, monthStart, 1);
+    // Monday of the week containing the first day of the quarter
+    const qMonday = parseDate(isoWeekMonday(firstOfMonth));
+    // Step back one week for buffer
+    const bufferStart = new Date(qMonday);
+    bufferStart.setDate(bufferStart.getDate() - 7);
+    const weeks = [];
+    for (let i = 0; i < 15; i++) {
+        const d = new Date(bufferStart);
+        d.setDate(bufferStart.getDate() + i * 7);
+        weeks.push(d);
+    }
+    return weeks;
+}
+
 /** Build a 6-row × 7-col grid array for a given year/month (month is 0-based). */
 function buildMonthGrid(year, month) {
     const firstDay = new Date(year, month, 1);
@@ -242,6 +302,7 @@ class ShipmentYearRenderer extends Component {
         onPrevYear: Function,
         onNextYear: Function,
         onToday: Function,
+        onSwitchToWeek: Function,
     };
 
     get months() {
@@ -287,6 +348,7 @@ class ShipmentCalendarRenderer extends Component {
         onOpenRecord: Function,
         onDropRecord: Function,
         onBackToYear: Function,
+        onSwitchToWeek: Function,
     };
 
     setup() {
@@ -387,6 +449,7 @@ class ShipmentCalendarController extends Component {
             loading: true,
             zoomLevel: 'year',
             yearOffset: 0,
+            quarterOffset: 0,
         });
 
         onWillStart(() => this._loadRecords());
@@ -395,6 +458,15 @@ class ShipmentCalendarController extends Component {
 
     get domain() { return this.props.domain || []; }
     get context() { return this.props.context || {}; }
+
+    get weekViewQuarterLabel() {
+        const now = new Date();
+        const baseQuarter = Math.floor(now.getMonth() / 3) + 1;
+        const { year, quarter } = resolveQuarter(
+            now.getFullYear(), baseQuarter, this.state.quarterOffset
+        );
+        return `Q${quarter} ${year}`;
+    }
 
     async _loadRecords() {
         this.state.loading = true;
@@ -414,6 +486,30 @@ class ShipmentCalendarController extends Component {
                 ["target_ship_date", "<=", formatDate(end)],
             ];
             fields = ["name", "state", "target_delivery_date", "target_ship_date", "total_cbm"];
+        } else if (this.state.zoomLevel === 'week') {
+            const now = new Date();
+            const baseYear = now.getFullYear();
+            const baseQuarter = Math.floor(now.getMonth() / 3) + 1;
+            const { year: dYear, quarter: dQ } = resolveQuarter(
+                baseYear, baseQuarter, this.state.quarterOffset
+            );
+            const weeks = quarterWeeks(dYear, dQ);
+            const bsStr = formatDate(weeks[0]);
+            const beStr = formatDate(weeks[weeks.length - 1]);
+            domain = [
+                ...this.domain,
+                "|",
+                "&", ["target_delivery_date", ">=", bsStr], ["target_delivery_date", "<=", beStr],
+                "&", ["target_delivery_date", "=", false],
+                    "&", ["target_ship_date", ">=", bsStr], ["target_ship_date", "<=", beStr],
+            ];
+            fields = [
+                "name", "state", "origin_port", "container_type",
+                "fill_percentage", "destination_warehouse_ids",
+                "target_ship_date", "target_delivery_date",
+                "freight_eta", "freight_status", "consolidation_suggestion",
+                "total_cbm",
+            ];
         } else {
             const viewStart = new Date(this.state.year, this.state.month - 1, 1);
             const viewEnd = new Date(this.state.year, this.state.month + 2, 0);
@@ -493,6 +589,27 @@ class ShipmentCalendarController extends Component {
         this._loadRecords();
     }
 
+    onPrevQuarter() {
+        this.state.quarterOffset -= 1;
+        this._loadRecords();
+    }
+
+    onNextQuarter() {
+        this.state.quarterOffset += 1;
+        this._loadRecords();
+    }
+
+    onSwitchToWeek() {
+        this.state.zoomLevel = 'week';
+        this.state.quarterOffset = 0;
+        this._loadRecords();
+    }
+
+    onSwitchToMonth() {
+        this.state.zoomLevel = 'month';
+        this._loadRecords();
+    }
+
     onOpenRecord(id) {
         this.action.doAction({
             type: "ir.actions.act_window",
@@ -526,6 +643,8 @@ class ShipmentCalendarController extends Component {
         this.state.year = now.getFullYear();
         this.state.month = now.getMonth();
         this.state.yearOffset = 0;
+        this.state.quarterOffset = 0;
+        this.state.zoomLevel = 'week';
         this._loadRecords();
     }
 }
