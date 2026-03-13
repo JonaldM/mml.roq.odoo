@@ -249,6 +249,30 @@ class TestWarehouseWeekLoad(TransactionCase):
         )
         self.assertEqual(load['status'], 'none')
 
+    def test_get_loads_for_weeks_returns_all_weeks(self):
+        """get_loads_for_weeks returns one entry per requested week date."""
+        monday1 = date(2026, 6, 15)   # W25
+        monday2 = date(2026, 6, 22)   # W26
+        result = self.env['roq.warehouse.week.load'].get_loads_for_weeks(
+            self.warehouse.id,
+            [monday1, monday2],
+        )
+        self.assertIn(str(monday1), result)
+        self.assertIn(str(monday2), result)
+        self.assertIn('status', result[str(monday1)])
+        self.assertIn('pct', result[str(monday1)])
+
+    def test_get_loads_for_weeks_with_shipment(self):
+        """Week W28 (2026-07-06) matches the test group's delivery date."""
+        # setUp group has target_delivery_date = date(2026, 7, 6)
+        # 2026-07-06 is a Monday -> it is itself the ISO week Monday for W28
+        monday = date(2026, 7, 6)
+        result = self.env['roq.warehouse.week.load'].get_loads_for_weeks(
+            self.warehouse.id,
+            [monday],
+        )
+        self.assertAlmostEqual(result[str(monday)]['cbm'], 60.0)
+
 
 class TestWeekViewStructure(unittest.TestCase):
     """Structural checks — verify OWL components and CSS classes exist in source."""

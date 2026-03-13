@@ -82,6 +82,74 @@ class RoqWarehouseWeekLoad(models.AbstractModel):
         }
 
     @api.model
+    def get_loads_for_weeks(self, warehouse_id, week_dates):
+        """Return load data for multiple weeks in a single DB round-trip.
+
+        Args:
+            warehouse_id (int): ID of the stock.warehouse record.
+            week_dates (list): Week Monday dates as date objects or "YYYY-MM-DD" strings.
+
+        Returns:
+            dict keyed by "YYYY-MM-DD" (ISO week Monday) ->
+                {'cbm': float, 'teu': float, 'pct': float, 'status': str}
+        """
+        from collections import defaultdict
+
+        warehouse = self.env['stock.warehouse'].browse(warehouse_id)
+
+        # Normalise all inputs to Monday date objects
+        mondays = []
+        for wd in week_dates:
+            if isinstance(wd, str):
+                wd = date.fromisoformat(wd)
+            mondays.append(wd - timedelta(days=wd.weekday()))
+
+        if not mondays:
+            return {}
+
+        range_start = min(mondays)
+        range_end = max(mondays) + timedelta(days=6)
+
+        groups = self.env['roq.shipment.group'].search([
+            ('destination_warehouse_ids', 'in', [warehouse_id]),
+            ('target_delivery_date', '>=', range_start),
+            ('target_delivery_date', '<=', range_end),
+            ('state', 'not in', ['cancelled']),
+        ])
+
+        week_groups = defaultdict(list)
+        for g in groups:
+            if g.target_delivery_date:
+                gd = g.target_delivery_date
+                wmon = gd - timedelta(days=gd.weekday())
+                week_groups[wmon].append(g)
+
+        unit = warehouse.roq_capacity_unit
+        cbm_cap = warehouse.roq_weekly_capacity_cbm
+        teu_cap = warehouse.roq_weekly_capacity_teu
+
+        result = {}
+        for monday in mondays:
+            wgs = week_groups.get(monday, [])
+            total_cbm = sum(g.total_cbm for g in wgs)
+            total_teu = sum(CONTAINER_TEU.get(g.container_type, 0.0) for g in wgs)
+
+            capacity = cbm_cap if unit == 'cbm' else teu_cap
+            load_val = total_cbm if unit == 'cbm' else total_teu
+
+            if not capacity:
+                pct, status = 0.0, 'none'
+            else:
+                pct = (load_val / capacity) * 100
+                status = 'green' if pct < 70 else ('amber' if pct < 90 else 'red')
+
+            result[str(monday)] = {
+                'cbm': total_cbm, 'teu': total_teu, 'pct': pct, 'status': status,
+            }
+
+        return result
+
+    @api.model
     def get_rolling_load(self, warehouse_id, weeks=8):
         """Return load data for a rolling N-week window starting from today.
 
