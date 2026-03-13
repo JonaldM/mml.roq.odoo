@@ -495,7 +495,9 @@ class ShipmentCalendarController extends Component {
             );
             const weeks = quarterWeeks(dYear, dQ);
             const bsStr = formatDate(weeks[0]);
-            const beStr = formatDate(weeks[weeks.length - 1]);
+            // Extend end to Sunday of last week so the full buffer week is covered
+            const lastWeek = weeks[weeks.length - 1];
+            const beStr = formatDate(new Date(lastWeek.getTime() + 6 * 86400000));
             domain = [
                 ...this.domain,
                 "|",
