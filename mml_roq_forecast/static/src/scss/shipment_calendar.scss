@@ -1142,3 +1142,132 @@
   padding-top: 6px;
   margin-top: auto;
 }
+
+// ─── Week View ───────────────────────────────────────────────────────────────
+
+.mml-sg-week-view {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  font-family: var(--nav-font-body);
+}
+
+.mml-sg-week-list {
+  flex: 1;
+  overflow-y: auto;
+  border-top: 1px solid var(--nav-grid);
+  position: relative;
+}
+
+.mml-sg-week-sentinel {
+  height: 1px;
+  visibility: hidden;
+}
+
+// ── Week Row ──
+
+.mml-sg-week-row {
+  display: flex;
+  min-height: 88px;
+  border-bottom: 1px solid var(--nav-grid);
+  transition: background .12s ease;
+
+  &:last-child { border-bottom: none; }
+
+  &--current { background: rgba(3, 105, 161, .04); }
+
+  &--drop-active {
+    background: rgba(59, 130, 246, .06);
+    outline: 2px dashed #3b82f6;
+    outline-offset: -2px;
+  }
+}
+
+// ── Gutter ──
+
+.mml-sg-week-gutter {
+  flex-shrink: 0;
+  width: 130px;
+  padding: 10px 14px;
+  border-right: 1px solid var(--nav-grid);
+  background: var(--nav-canvas);
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.mml-sg-week-num {
+  font-family: var(--nav-font-mono);
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--nav-text);
+  line-height: 1;
+
+  &--current { color: var(--nav-confirmed); }
+}
+
+.mml-sg-week-range {
+  font-size: 10px;
+  color: var(--nav-text-muted);
+  margin-bottom: 6px;
+}
+
+.mml-sg-week-load-bar-wrap {
+  background: var(--nav-grid);
+  border-radius: 3px;
+  height: 5px;
+  width: 88px;
+  overflow: hidden;
+  margin-top: 4px;
+}
+
+.mml-sg-week-load-bar {
+  height: 100%;
+  border-radius: 3px;
+  transition: width .3s ease;
+
+  &--green { background: #10b981; }
+  &--amber { background: #f59e0b; }
+  &--red   { background: #ef4444; }
+}
+
+.mml-sg-week-load-pct {
+  font-family: var(--nav-font-mono);
+  font-size: 9px;
+  font-weight: 600;
+  margin-top: 2px;
+
+  &--green { color: #047857; }
+  &--amber { color: #92400e; }
+  &--red   { color: #b91c1c; }
+}
+
+// ── Cards area ──
+
+.mml-sg-week-cards {
+  flex: 1;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  padding: 10px 14px;
+  align-content: flex-start;
+}
+
+.mml-sg-week-empty-hint {
+  color: var(--nav-grid);
+  font-size: 11px;
+  font-style: italic;
+  align-self: center;
+}
+
+.mml-sg-week-empty {
+  padding: 40px;
+  text-align: center;
+  color: var(--nav-text-muted);
+  font-size: 13px;
+}
+
+@media print {
+  .mml-sg-week-load-bar-wrap { display: none; }
+  .mml-sg-week-row--drop-active { outline: none; }
+}
