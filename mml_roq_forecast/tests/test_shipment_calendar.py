@@ -1,3 +1,5 @@
+import os
+import unittest
 from datetime import date, datetime, timedelta
 from unittest.mock import MagicMock, patch
 
@@ -246,3 +248,49 @@ class TestWarehouseWeekLoad(TransactionCase):
             date(2026, 7, 6),
         )
         self.assertEqual(load['status'], 'none')
+
+
+class TestWeekViewStructure(unittest.TestCase):
+    """Structural checks — verify OWL components and CSS classes exist in source."""
+
+    _BASE = os.path.join(os.path.dirname(__file__), '..')
+
+    def _read(self, *parts):
+        with open(os.path.join(self._BASE, *parts), encoding='utf-8') as f:
+            return f.read()
+
+    def _js(self):
+        return self._read('static', 'src', 'js', 'shipment_calendar_view.js')
+
+    def _xml(self):
+        return self._read('static', 'src', 'xml', 'shipment_calendar.xml')
+
+    def _scss(self):
+        return self._read('static', 'src', 'scss', 'shipment_calendar.scss')
+
+    def test_iso_week_monday_helper_exists(self):
+        self.assertIn('function isoWeekMonday', self._js())
+
+    def test_quarter_offset_in_state(self):
+        self.assertIn('quarterOffset', self._js())
+
+    def test_week_row_component_exists(self):
+        self.assertIn('class WeekRow', self._js())
+
+    def test_shipment_week_renderer_exists(self):
+        self.assertIn('class ShipmentWeekRenderer', self._js())
+
+    def test_xml_week_branch_exists(self):
+        self.assertIn("zoomLevel === 'week'", self._xml())
+
+    def test_xml_week_renderer_template_exists(self):
+        self.assertIn('mml_roq_forecast.ShipmentWeekRenderer', self._xml())
+
+    def test_xml_week_row_template_exists(self):
+        self.assertIn('mml_roq_forecast.WeekRow', self._xml())
+
+    def test_scss_week_row_class_exists(self):
+        self.assertIn('.mml-sg-week-row', self._scss())
+
+    def test_scss_week_gutter_class_exists(self):
+        self.assertIn('.mml-sg-week-gutter', self._scss())
