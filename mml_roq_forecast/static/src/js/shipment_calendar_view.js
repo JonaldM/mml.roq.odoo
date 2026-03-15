@@ -73,34 +73,18 @@ function isoWeekNumber(d) {
 }
 
 /**
- * Given a year and 1-based quarter (1–4) and a quarterOffset integer,
- * compute the effective display year and quarter after applying the offset.
- * Returns { year, quarter }.
+ * Return 52 Monday Date objects for a rolling year.
+ * quarterOffset shifts the window in 13-week (quarter) increments.
+ * quarterOffset=0 → starts from today's ISO week Monday.
  */
-function resolveQuarter(baseYear, baseQuarter, quarterOffset) {
-    let total = (baseYear * 4 + baseQuarter - 1) + quarterOffset;
-    return {
-        year: Math.floor(total / 4),
-        quarter: (total % 4) + 1,
-    };
-}
-
-/**
- * Return 15 Monday Date objects for a quarter: 1 buffer week before Q start,
- * 13 weeks of the quarter, 1 buffer week after Q end.
- */
-function quarterWeeks(year, quarter) {
-    const monthStart = (quarter - 1) * 3;
-    const firstOfMonth = new Date(year, monthStart, 1);
-    // Monday of the week containing the first day of the quarter
-    const qMonday = parseDate(isoWeekMonday(firstOfMonth));
-    // Step back one week for buffer
-    const bufferStart = new Date(qMonday);
-    bufferStart.setDate(bufferStart.getDate() - 7);
+function rollingYearWeeks(quarterOffset) {
+    const todayMonday = parseDate(isoWeekMonday(new Date()));
+    const start = new Date(todayMonday);
+    start.setDate(start.getDate() + quarterOffset * 13 * 7);
     const weeks = [];
-    for (let i = 0; i < 15; i++) {
-        const d = new Date(bufferStart);
-        d.setDate(bufferStart.getDate() + i * 7);
+    for (let i = 0; i < 52; i++) {
+        const d = new Date(start);
+        d.setDate(start.getDate() + i * 7);
         weeks.push(d);
     }
     return weeks;
@@ -371,9 +355,7 @@ class ShipmentWeekRenderer extends Component {
         this.orm = useService("orm");
         this.drag = useState({ recordId: null, originalAnchorDateStr: null });
         this.weekLoadData = useState({ value: {} });
-        this.sentinelTop = useRef("sentinelTop");
-        this.sentinelBottom = useRef("sentinelBottom");
-        this._intersectionObs = null;
+        this.weekList = useRef("weekList");
 
         onWillStart(() => this._loadWeekLoads(this.props.records));
 
@@ -384,27 +366,12 @@ class ShipmentWeekRenderer extends Component {
         });
 
         onMounted(() => {
-            this._intersectionObs = new IntersectionObserver(
-                (entries) => {
-                    for (const entry of entries) {
-                        if (!entry.isIntersecting) continue;
-                        if (entry.target === this.sentinelTop.el) {
-                            this.props.onPrevQuarter();
-                        } else if (entry.target === this.sentinelBottom.el) {
-                            this.props.onNextQuarter();
-                        }
-                    }
-                },
-                { threshold: 0.1 }
-            );
-            if (this.sentinelTop.el) this._intersectionObs.observe(this.sentinelTop.el);
-            if (this.sentinelBottom.el) this._intersectionObs.observe(this.sentinelBottom.el);
-        });
-
-        onWillUnmount(() => {
-            if (this._intersectionObs) {
-                this._intersectionObs.disconnect();
-                this._intersectionObs = null;
+            // Scroll current week into the visible area on first render
+            if (this.weekList.el) {
+                const currentRow = this.weekList.el.querySelector('.mml-sg-week-row--current');
+                if (currentRow) {
+                    currentRow.scrollIntoView({ block: 'center', behavior: 'instant' });
+                }
             }
         });
     }
@@ -418,22 +385,11 @@ class ShipmentWeekRenderer extends Component {
             : (rec.target_delivery_date || rec.target_ship_date);
     }
 
-    /** Resolve display year/quarter from quarterOffset prop. */
-    _displayQuarter() {
-        const now = new Date();
-        return resolveQuarter(
-            now.getFullYear(),
-            Math.floor(now.getMonth() / 3) + 1,
-            this.props.quarterOffset
-        );
-    }
-
     // ── Computed ──
 
-    /** 15 week Monday Dates covering the displayed quarter (from quarterWeeks helper). */
+    /** 52 Monday Dates for the rolling year window (all preloaded, no lazy loading). */
     get weeks() {
-        const { year, quarter } = this._displayQuarter();
-        return quarterWeeks(year, quarter);
+        return rollingYearWeeks(this.props.quarterOffset);
     }
 
     get draggingRecord() {
@@ -706,12 +662,11 @@ class ShipmentCalendarController extends Component {
     get context() { return this.props.context || {}; }
 
     get weekViewQuarterLabel() {
-        const now = new Date();
-        const baseQuarter = Math.floor(now.getMonth() / 3) + 1;
-        const { year, quarter } = resolveQuarter(
-            now.getFullYear(), baseQuarter, this.state.quarterOffset
-        );
-        return `Q${quarter} ${year}`;
+        const weeks = rollingYearWeeks(this.state.quarterOffset);
+        const first = weeks[0];
+        const last = weeks[weeks.length - 1];
+        const fmt = d => d.toLocaleDateString("en-NZ", { day: "numeric", month: "short", year: "numeric" });
+        return `${fmt(first)} – ${fmt(last)}`;
     }
 
     async _loadRecords() {
@@ -733,15 +688,9 @@ class ShipmentCalendarController extends Component {
             ];
             fields = ["name", "state", "target_delivery_date", "target_ship_date", "total_cbm"];
         } else if (this.state.zoomLevel === 'week') {
-            const now = new Date();
-            const baseYear = now.getFullYear();
-            const baseQuarter = Math.floor(now.getMonth() / 3) + 1;
-            const { year: dYear, quarter: dQ } = resolveQuarter(
-                baseYear, baseQuarter, this.state.quarterOffset
-            );
-            const weeks = quarterWeeks(dYear, dQ);
+            const weeks = rollingYearWeeks(this.state.quarterOffset);
             const bsStr = formatDate(weeks[0]);
-            // Extend end to Sunday of last week so the full buffer week is covered
+            // Extend end to Sunday of the last week
             const lastWeek = weeks[weeks.length - 1];
             const beStr = formatDate(new Date(lastWeek.getTime() + 6 * 86400000));
             domain = [

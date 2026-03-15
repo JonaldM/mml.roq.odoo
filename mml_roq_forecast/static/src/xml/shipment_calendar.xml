@@ -344,9 +344,6 @@
       </div>
 
       <div class="mml-sg-week-list" t-ref="weekList">
-        <!-- Top sentinel for IntersectionObserver lazy loading -->
-        <div class="mml-sg-week-sentinel" t-ref="sentinelTop"/>
-
         <t t-foreach="weeks" t-as="wk" t-key="wk.getTime()">
           <WeekRow
             weekMonday="wk"
@@ -360,9 +357,6 @@
             onDropRow="(mon) => this.onDropRow(mon)"
           />
         </t>
-
-        <!-- Bottom sentinel for IntersectionObserver lazy loading -->
-        <div class="mml-sg-week-sentinel" t-ref="sentinelBottom"/>
       </div>
 
     </div>
