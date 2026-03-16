@@ -1,5 +1,6 @@
 from datetime import date, timedelta
 from collections import defaultdict
+from .oos_handler import detect_oos_weeks, impute_oos_demand
 
 
 class DemandHistoryService:
@@ -20,6 +21,7 @@ class DemandHistoryService:
     def get_weekly_demand(self, product, warehouse, lookback_weeks=156):
         """
         Returns list of weekly demand quantities, oldest first, length=lookback_weeks.
+        Zeros caused by stockouts are imputed using incoming receipt proximity signal.
         product: product.product recordset
         warehouse: stock.warehouse recordset
         lookback_weeks: int
@@ -44,13 +46,36 @@ class DemandHistoryService:
             week_start = order_date - timedelta(days=order_date.weekday())
             week_demand[week_start] += line.product_uom_qty
 
+        # Build weekly series (oldest first)
         result = []
+        weekly_pairs = []
         current = start_date - timedelta(days=start_date.weekday())
         while current <= today:
-            result.append(week_demand.get(current, 0.0))
+            qty = week_demand.get(current, 0.0)
+            result.append(qty)
+            weekly_pairs.append((current, qty))
             current += timedelta(weeks=1)
 
-        return result[-lookback_weeks:]
+        result = result[-lookback_weeks:]
+        weekly_pairs = weekly_pairs[-lookback_weeks:]
+
+        # OOS detection — fetch incoming receipts for this product/warehouse
+        receipt_moves = self.env['stock.move'].search([
+            ('product_id', '=', product.id),
+            ('location_dest_id.warehouse_id', '=', warehouse.id),
+            ('picking_type_code', '=', 'incoming'),
+            ('state', '=', 'done'),
+            ('date', '>=', start_date.strftime('%Y-%m-%d')),
+        ])
+        receipt_dates = [
+            m.date.date() if hasattr(m.date, 'date') else m.date
+            for m in receipt_moves
+        ]
+
+        oos_flags = detect_oos_weeks(weekly_pairs, receipt_dates)
+        result = impute_oos_demand(result, oos_flags)
+
+        return result
 
     def get_trailing_revenue(self, product_template, weeks=52):
         """
