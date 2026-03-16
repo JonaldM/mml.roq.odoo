@@ -22,7 +22,7 @@ _logger = logging.getLogger(__name__)
 from .abc_classifier import AbcClassifier
 from .demand_history import DemandHistoryService
 from .forecast_methods import (
-    forecast_sma, forecast_ewma, forecast_holt_winters,
+    forecast_sma, forecast_ewma, forecast_holt_winters, forecast_croston_sba,
     select_forecast_method, demand_std_dev,
 )
 from .safety_stock import calculate_safety_stock, get_z_score
@@ -145,15 +145,17 @@ class RoqPipeline:
                 history = self.dh.get_weekly_demand(product, wh, lookback_weeks=lookback)
                 method, confidence = select_forecast_method(history, min_n=min_n)
 
-                if method == 'sma':
-                    fwd = forecast_sma(history, window=sma_window)
+                if method == 'croston':
+                    fwd, croston_std = forecast_croston_sba(history)
+                elif method == 'sma':
+                    fwd, croston_std = forecast_sma(history, window=sma_window), None
                 elif method == 'ewma':
-                    fwd = forecast_ewma(history, span=26)
-                else:
-                    fwd = forecast_holt_winters(history)
+                    fwd, croston_std = forecast_ewma(history, span=26), None
+                else:  # holt_winters
+                    fwd, croston_std = forecast_holt_winters(history), None
 
                 avg_demand = sum(history) / len(history) if history else 0.0
-                sigma, is_fallback = demand_std_dev(history, min_n=min_n)
+                sigma, is_fallback = demand_std_dev(history, min_n=min_n, croston_std=croston_std)
                 ss = calculate_safety_stock(z_score, sigma, lt_weeks)
 
                 inv_pos = self.inv.get_inventory_position(product, wh)

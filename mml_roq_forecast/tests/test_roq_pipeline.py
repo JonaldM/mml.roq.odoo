@@ -141,3 +141,17 @@ class TestRoqPipeline(TransactionCase):
             "WH1 and WH2 must have distinct roq_containerized values; "
             "equal values indicate the multi-warehouse key collision (C2) is still present.",
         )
+
+
+import unittest
+
+
+class TestRoqPipelineCrostonImport(unittest.TestCase):
+    """Verifies forecast_croston_sba is imported in roq_pipeline (wiring smoke test)."""
+
+    def test_forecast_croston_sba_importable_from_pipeline(self):
+        from ..services import roq_pipeline
+        self.assertTrue(
+            hasattr(roq_pipeline, 'forecast_croston_sba'),
+            "forecast_croston_sba must be importable from roq_pipeline after Task 6",
+        )
