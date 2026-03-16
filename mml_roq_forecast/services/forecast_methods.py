@@ -43,7 +43,7 @@ def forecast_ewma(history, span=26):
     return result
 
 
-def forecast_holt_winters(history, seasonal_period=52, alpha=0.3, beta=0.1, gamma=0.1):
+def forecast_holt_winters(history, seasonal_period=52, alpha=0.3, beta=0.1, gamma=0.1, phi=0.98):
     """
     Triple Exponential Smoothing (Holt-Winters additive model).
     Requires at least 2 full seasonal cycles (2 × seasonal_period data points).
@@ -80,7 +80,7 @@ def forecast_holt_winters(history, seasonal_period=52, alpha=0.3, beta=0.1, gamm
     last_level = levels[-1]
     last_trend = trends[-1]
     last_season = seasons[-seasonal_period]
-    forecast = last_level + last_trend + last_season
+    forecast = last_level + phi * last_trend + last_season
     return max(0.0, min(_MAX_WEEKLY_DEMAND, forecast))
 
 

@@ -71,6 +71,16 @@ class TestHoltWinters(TransactionCase):
         self.assertEqual(method, 'sma')
         self.assertEqual(confidence, 'low')
 
+    def test_phi_damping_reduces_trend_contribution(self):
+        """phi=0.98 forecast must be strictly less than phi=1.0 on a growing series."""
+        from ..services.forecast_methods import forecast_holt_winters
+        # Very strong upward trend: start at 100, increase by 10 per week for 2 cycles
+        history = [100.0 + 10.0 * i for i in range(104)]
+        # Use higher beta to let trend develop
+        undamped = forecast_holt_winters(history, beta=0.3, phi=1.0)
+        damped = forecast_holt_winters(history, beta=0.3, phi=0.98)
+        self.assertLess(damped, undamped)
+
 
 class TestDemandStdDev(unittest.TestCase):
 
