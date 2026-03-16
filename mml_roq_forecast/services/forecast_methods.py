@@ -84,6 +84,35 @@ def forecast_holt_winters(history, seasonal_period=52, alpha=0.3, beta=0.1, gamm
     return max(0.0, min(_MAX_WEEKLY_DEMAND, forecast))
 
 
+def forecast_croston_sba(history, alpha=0.1):
+    """
+    Croston/SBA forecast for intermittent demand (<30% active weeks).
+    alpha=0.1: slow-adapting EWMA appropriate for sparse data.
+    SBA correction factor 0.95 corrects Croston's known upward bias.
+
+    Returns: (forecast: float, std: float | None)
+      forecast = (smoothed_size / smoothed_interval) * 0.95
+      std      = statistics.stdev(non_zero_sizes) if len >= 2, else None
+    Returns (0.0, None) if no positive values in history.
+    """
+    import statistics
+    non_zero = [(i, v) for i, v in enumerate(history) if v > 0]
+    if not non_zero:
+        return 0.0, None
+    sizes = [v for _, v in non_zero]
+    intervals = [non_zero[0][0] + 1] + [
+        non_zero[i][0] - non_zero[i - 1][0] for i in range(1, len(non_zero))
+    ]
+    z_size = sizes[0]
+    z_interval = intervals[0]
+    for s, q in zip(sizes[1:], intervals[1:]):
+        z_size = alpha * s + (1 - alpha) * z_size
+        z_interval = alpha * q + (1 - alpha) * z_interval
+    forecast = (z_size / z_interval * 0.95) if z_interval > 0 else 0.0
+    std = statistics.stdev(sizes) if len(sizes) >= 2 else None
+    return max(forecast, 0.0), std
+
+
 def demand_std_dev(history, min_n=8, croston_std=None):
     """
     Standard deviation of weekly demand.
@@ -106,25 +135,38 @@ def select_forecast_method(history, min_n=8, seasonal_period=52,
     Automatically selects the best forecast method for the given history.
 
     Selection logic:
-    1. If < min_n non-zero weeks → SMA (low confidence)
-    2. Test for seasonality (strength of seasonal component)
-    3. If seasonal → Holt-Winters
-    4. Test for trend (Mann-Kendall)
-    5. If trending → EWMA
-    6. Otherwise → SMA
+    1. If < 30% of weeks have non-zero demand -> Croston/SBA (intermittent)
+    2. If < min_n non-zero weeks -> SMA (low confidence)
+    3. Test for seasonality (strength of seasonal component)
+    4. If seasonal -> Holt-Winters
+    5. Test for trend (Mann-Kendall)
+    6. If trending -> EWMA
+    7. Otherwise -> SMA
 
     Returns: (method_name, confidence)
     """
     nonzero = [v for v in history if v > 0]
 
+    # 1. Intermittency check — must come first, before Mann-Kendall / seasonality tests.
+    #    Those tests are meaningless on sparse series and would misroute sparse-trending
+    #    products to EWMA.
+    if history:
+        pct_active = len(nonzero) / len(history)
+        if pct_active < 0.30:
+            return 'croston', 'high' if len(nonzero) >= 2 else 'low'
+
+    # 2. Insufficient data fallback (keeps existing behaviour for short-history products
+    #    that are NOT sparse — e.g. a new SKU with 5 non-zero weeks out of 5 total).
     if len(nonzero) < min_n:
         return 'sma', 'low'
 
+    # 3. Seasonality test
     if len(history) >= 2 * seasonal_period:
         seasonality_strength = _seasonal_strength(history, seasonal_period)
         if seasonality_strength > seasonality_threshold:
             return 'holt_winters', 'high'
 
+    # 4. Trend test
     if _has_trend(history, pvalue_threshold=trend_pvalue):
         return 'ewma', 'high' if len(nonzero) >= 26 else 'medium'
 

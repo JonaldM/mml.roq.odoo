@@ -1,7 +1,11 @@
 import math
 import unittest
 from odoo.tests.common import TransactionCase
-from ..services.forecast_methods import forecast_sma, forecast_ewma, demand_std_dev
+from ..services.forecast_methods import (
+    forecast_sma, forecast_ewma, demand_std_dev,
+    forecast_croston_sba, select_forecast_method,
+)
+import statistics as _statistics
 
 
 class TestForecastMethods(TransactionCase):
@@ -97,3 +101,63 @@ class TestDemandStdDev(unittest.TestCase):
         result, is_fallback = demand_std_dev(history, min_n=8)
         self.assertTrue(is_fallback)
         self.assertAlmostEqual(result, 3.0)  # 0.5 * mean(4,6,8) = 0.5 * 6 = 3.0
+
+
+class TestCrostonSba(unittest.TestCase):
+
+    def test_basic_forecast_positive_and_below_nonzero_mean(self):
+        """SBA correction means result < naive mean of non-zero values."""
+        history = [0, 5, 0, 3, 0, 4]
+        forecast, std = forecast_croston_sba(history)
+        nonzero_mean = _statistics.mean([5, 3, 4])
+        self.assertGreater(forecast, 0.0)
+        self.assertLess(forecast, nonzero_mean)
+
+    def test_all_zero_returns_zero_and_none(self):
+        history = [0.0] * 20
+        forecast, std = forecast_croston_sba(history)
+        self.assertEqual(forecast, 0.0)
+        self.assertIsNone(std)
+
+    def test_single_nonzero_std_is_none(self):
+        """Cannot compute stdev with fewer than 2 points."""
+        history = [0.0] * 10 + [5.0] + [0.0] * 5
+        forecast, std = forecast_croston_sba(history)
+        self.assertGreater(forecast, 0.0)
+        self.assertIsNone(std)
+
+    def test_multiple_nonzero_std_is_float(self):
+        history = [0, 10, 0, 0, 8, 0, 12, 0]
+        forecast, std = forecast_croston_sba(history)
+        self.assertIsNotNone(std)
+        self.assertGreater(std, 0.0)
+
+
+class TestSelectForecastMethodCroston(unittest.TestCase):
+
+    def test_routes_to_croston_when_sparse(self):
+        """< 30% active weeks -> croston regardless of trend or season."""
+        # 5 nonzero out of 40 total = 12.5% active
+        history = [0.0] * 35 + [1.0, 0.0, 2.0, 0.0, 3.0]
+        method, confidence = select_forecast_method(history)
+        self.assertEqual(method, 'croston')
+
+    def test_croston_checked_before_trend(self):
+        """Sparse trending series must route to croston, not ewma."""
+        # Upward trend but only ~12% active weeks
+        history = [float(i) if i % 8 == 0 else 0.0 for i in range(80)]
+        method, _ = select_forecast_method(history)
+        self.assertEqual(method, 'croston')
+
+    def test_dense_series_does_not_route_to_croston(self):
+        """> 30% active weeks: Croston path skipped."""
+        history = [5.0] * 50 + [0.0] * 10  # 83% active
+        method, _ = select_forecast_method(history)
+        self.assertNotEqual(method, 'croston')
+
+    def test_existing_insufficient_data_test_unaffected(self):
+        """[5.0]*5: pct_active=100%, not sparse. Still falls to sma/low via min_n."""
+        history = [5.0] * 5
+        method, confidence = select_forecast_method(history)
+        self.assertEqual(method, 'sma')
+        self.assertEqual(confidence, 'low')
