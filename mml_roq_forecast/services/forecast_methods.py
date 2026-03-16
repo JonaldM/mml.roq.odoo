@@ -153,7 +153,7 @@ def select_forecast_method(history, min_n=8, seasonal_period=52,
     if history:
         pct_active = len(nonzero) / len(history)
         if pct_active < 0.30:
-            return 'croston', 'high' if len(nonzero) >= 2 else 'low'
+            return 'croston', ('high' if len(nonzero) >= 2 else 'low')
 
     # 2. Insufficient data fallback (keeps existing behaviour for short-history products
     #    that are NOT sparse — e.g. a new SKU with 5 non-zero weeks out of 5 total).
