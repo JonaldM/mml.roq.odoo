@@ -84,10 +84,12 @@ class TestDemandStdDev(unittest.TestCase):
 
     def test_uses_history_length_not_nonzero_count_for_min_n(self):
         """5 nonzero + 100 zeros = 105 total >= min_n=8: should return computed stddev, not fallback."""
+        import numpy as np
         history = [5.0] * 5 + [0.0] * 100
         result, is_fallback = demand_std_dev(history, min_n=8)
         self.assertFalse(is_fallback)
-        self.assertGreater(result, 0.0)
+        expected = float(np.std(history, ddof=1))
+        self.assertAlmostEqual(result, expected, places=4)
 
     def test_fallback_when_history_too_short(self):
         """Only 3 data points < min_n=8: should return 0.5 * mean fallback."""

@@ -94,7 +94,7 @@ def demand_std_dev(history, min_n=8, croston_std=None):
     """
     if croston_std is not None:
         return croston_std, False
-    if len(history) < min_n:
+    if not history or len(history) < min_n:
         mean = sum(history) / len(history) if history else 0.0
         return 0.5 * mean, True
     return float(np.std(history, ddof=1)), False
