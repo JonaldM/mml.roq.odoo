@@ -1,6 +1,7 @@
 import math
+import unittest
 from odoo.tests.common import TransactionCase
-from ..services.forecast_methods import forecast_sma, forecast_ewma
+from ..services.forecast_methods import forecast_sma, forecast_ewma, demand_std_dev
 
 
 class TestForecastMethods(TransactionCase):
@@ -65,3 +66,32 @@ class TestHoltWinters(TransactionCase):
         method, confidence = select_forecast_method(history)
         self.assertEqual(method, 'sma')
         self.assertEqual(confidence, 'low')
+
+
+class TestDemandStdDev(unittest.TestCase):
+
+    def test_croston_std_override_returned_directly(self):
+        """croston_std kwarg short-circuits all other logic."""
+        result, is_fallback = demand_std_dev([1.0, 2.0, 3.0], min_n=8, croston_std=2.5)
+        self.assertAlmostEqual(result, 2.5)
+        self.assertFalse(is_fallback)
+
+    def test_croston_std_zero_not_treated_as_falsy(self):
+        """croston_std=0.0 must pass through — do not use 'if croston_std:'."""
+        result, is_fallback = demand_std_dev([1.0, 2.0, 3.0], min_n=8, croston_std=0.0)
+        self.assertAlmostEqual(result, 0.0)
+        self.assertFalse(is_fallback)
+
+    def test_uses_history_length_not_nonzero_count_for_min_n(self):
+        """5 nonzero + 100 zeros = 105 total >= min_n=8: should return computed stddev, not fallback."""
+        history = [5.0] * 5 + [0.0] * 100
+        result, is_fallback = demand_std_dev(history, min_n=8)
+        self.assertFalse(is_fallback)
+        self.assertGreater(result, 0.0)
+
+    def test_fallback_when_history_too_short(self):
+        """Only 3 data points < min_n=8: should return 0.5 * mean fallback."""
+        history = [4.0, 6.0, 8.0]
+        result, is_fallback = demand_std_dev(history, min_n=8)
+        self.assertTrue(is_fallback)
+        self.assertAlmostEqual(result, 3.0)  # 0.5 * mean(4,6,8) = 0.5 * 6 = 3.0

@@ -84,14 +84,17 @@ def forecast_holt_winters(history, seasonal_period=52, alpha=0.3, beta=0.1, gamm
     return max(0.0, min(_MAX_WEEKLY_DEMAND, forecast))
 
 
-def demand_std_dev(history, min_n=8):
+def demand_std_dev(history, min_n=8, croston_std=None):
     """
     Standard deviation of weekly demand.
-    If fewer than min_n non-zero data points, uses fallback: 0.5 × mean.
+    If croston_std is not None, returns it directly (Croston products use
+    stddev of non-zero demand sizes, not the full series).
+    If fewer than min_n data points in history, uses fallback: 0.5 x mean.
     Returns (std_dev, is_fallback).
     """
-    nonzero = [v for v in history if v > 0]
-    if len(nonzero) < min_n:
+    if croston_std is not None:
+        return croston_std, False
+    if len(history) < min_n:
         mean = sum(history) / len(history) if history else 0.0
         return 0.5 * mean, True
     return float(np.std(history, ddof=1)), False
