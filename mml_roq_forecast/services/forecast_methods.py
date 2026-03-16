@@ -14,6 +14,13 @@ import numpy as np
 # Holt-Winters from cascading into absurd container calculations.
 _MAX_WEEKLY_DEMAND = 1_000_000.0
 
+# Relative band for HW bias override. When the HW forecast falls outside
+# [HW_BIAS_FLOOR, HW_BIAS_CEILING] × mean(history[-13:]), the pipeline
+# replaces it with a recency-weighted SMA to correct momentum lag on
+# regime changes (demand collapse or surge).
+HW_BIAS_FLOOR = 0.50
+HW_BIAS_CEILING = 1.50
+
 
 def forecast_sma(history, window=52):
     """
@@ -81,6 +88,13 @@ def forecast_holt_winters(history, seasonal_period=52, alpha=0.3, beta=0.1, gamm
     last_trend = trends[-1]
     last_season = seasons[-seasonal_period]
     forecast = last_level + phi * last_trend + last_season
+
+    # 2x recent-max cap: limits runaway extrapolation when HW trend momentum
+    # has not yet caught up to a demand collapse or surge.
+    recent_max = max(history[-13:]) if len(history) >= 13 else max(history)
+    if recent_max > 0:
+        forecast = min(forecast, recent_max * 2.0)
+
     return max(0.0, min(_MAX_WEEKLY_DEMAND, forecast))
 
 

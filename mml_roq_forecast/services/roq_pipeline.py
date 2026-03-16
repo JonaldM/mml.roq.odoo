@@ -24,6 +24,7 @@ from .demand_history import DemandHistoryService
 from .forecast_methods import (
     forecast_sma, forecast_ewma, forecast_holt_winters, forecast_croston_sba,
     select_forecast_method, demand_std_dev,
+    HW_BIAS_FLOOR, HW_BIAS_CEILING,
 )
 from .safety_stock import calculate_safety_stock, get_z_score
 from .roq_calculator import (
@@ -143,16 +144,46 @@ class RoqPipeline:
                 z_score = get_z_score(tier)
 
                 history = self.dh.get_weekly_demand(product, wh, lookback_weeks=lookback)
-                method, confidence = select_forecast_method(history, min_n=min_n)
+                # Raw history (no OOS imputation) for routing and Croston only.
+                # Croston natively models inter-demand intervals and requires zeros
+                # to correctly estimate demand frequency; imputing zeros inflates
+                # forecasts by compressing the estimated inter-demand interval.
+                raw_history = self.dh.get_weekly_demand_raw(product, wh, lookback_weeks=lookback)
+                method, confidence = select_forecast_method(raw_history, min_n=min_n)
 
                 if method == 'croston':
-                    fwd, croston_std = forecast_croston_sba(history)
+                    fwd, croston_std = forecast_croston_sba(raw_history)
                 elif method == 'sma':
                     fwd, croston_std = forecast_sma(history, window=sma_window), None
                 elif method == 'ewma':
                     fwd, croston_std = forecast_ewma(history, span=26), None
                 else:  # holt_winters
-                    fwd, croston_std = forecast_holt_winters(history), None
+                    hw_raw = forecast_holt_winters(history)
+                    fwd = hw_raw
+                    # Post-hoc SMA bias override: if HW forecast is outside
+                    # [HW_BIAS_FLOOR, HW_BIAS_CEILING] × sma_13w, replace with a
+                    # recency-weighted SMA (last 4w × 2, prior 9w × 1) to correct
+                    # momentum lag on demand collapses and surges.
+                    sma_13w = (sum(history[-13:]) / 13) if len(history) >= 13 else (
+                        sum(history) / len(history) if history else 0.0
+                    )
+                    if sma_13w > 0:
+                        hw_ratio = hw_raw / sma_13w
+                        if hw_ratio > HW_BIAS_CEILING or hw_ratio < HW_BIAS_FLOOR:
+                            recent = history[-4:]
+                            prior = history[-13:-4]
+                            weighted_sum = sum(recent) * 2 + sum(prior)
+                            weighted_count = len(recent) * 2 + len(prior)
+                            fwd = weighted_sum / weighted_count if weighted_count > 0 else sma_13w
+                            method = 'hw_sma_override'
+                            _logger.info(
+                                "HW bias override %s wh=%s: ratio=%.2fx sma_13w=%.1f"
+                                " hw=%.1f -> override=%.1f",
+                                getattr(pt, 'default_code', getattr(pt, 'id', '?')),
+                                getattr(wh, 'name', getattr(wh, 'id', '?')),
+                                hw_ratio, sma_13w, hw_raw, fwd,
+                            )
+                    croston_std = None
 
                 avg_demand = sum(history) / len(history) if history else 0.0
                 sigma, is_fallback = demand_std_dev(history, min_n=min_n, croston_std=croston_std)

@@ -77,6 +77,41 @@ class DemandHistoryService:
 
         return result
 
+    def get_weekly_demand_raw(self, product, warehouse, lookback_weeks=156):
+        """
+        Raw weekly demand without OOS imputation — for use by Croston/SBA only.
+        Croston natively models inter-demand intervals and requires the full
+        series including zeros; imputing zeros compresses interval estimates
+        and inflates the forecast.
+        """
+        today = date.today()
+        start_date = today - timedelta(weeks=lookback_weeks)
+
+        week_demand = defaultdict(float)
+
+        lines = self.env['sale.order.line'].search([
+            ('product_id', '=', product.id),
+            ('order_id.state', 'in', ['sale', 'done']),
+            ('order_id.warehouse_id', '=', warehouse.id),
+            ('order_id.date_order', '>=', start_date.strftime('%Y-%m-%d')),
+            ('company_id', '=', self.env.company.id),
+        ])
+
+        for line in lines:
+            order_date = line.order_id.date_order.date() if hasattr(
+                line.order_id.date_order, 'date'
+            ) else line.order_id.date_order
+            week_start = order_date - timedelta(days=order_date.weekday())
+            week_demand[week_start] += line.product_uom_qty
+
+        result = []
+        current = start_date - timedelta(days=start_date.weekday())
+        while current <= today:
+            result.append(week_demand.get(current, 0.0))
+            current += timedelta(weeks=1)
+
+        return result[-lookback_weeks:]
+
     def get_trailing_revenue(self, product_template, weeks=52):
         """
         Returns total revenue for a product.template over trailing `weeks`.
