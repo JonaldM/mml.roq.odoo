@@ -162,8 +162,15 @@ class RoqForecastRun(models.Model):
             'default_service_level': _safe_float(get('roq.default_service_level'), 0.97),
             'enable_moq_enforcement': get('roq.enable_moq_enforcement', 'True') == 'True',
         })
-        pipeline = RoqPipeline(self.env)
-        pipeline.run(self)
+        # Run pipeline in an independent cursor so a browser disconnect cannot
+        # roll back the transaction mid-run.
+        run_id = self.id
+        with self.env.registry.cursor() as new_cr:
+            new_env = api.Environment(new_cr, self.env.uid, self.env.context)
+            run_rec = new_env['roq.forecast.run'].browse(run_id)
+            pipeline = RoqPipeline(new_env)
+            pipeline.run(run_rec)
+            new_cr.commit()
         self.env['mml.event'].emit(
             'roq.forecast.run',
             quantity=1,
