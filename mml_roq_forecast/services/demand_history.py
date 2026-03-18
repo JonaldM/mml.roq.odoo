@@ -63,7 +63,7 @@ class DemandHistoryService:
         receipt_moves = self.env['stock.move'].search([
             ('product_id', '=', product.id),
             ('location_dest_id.warehouse_id', '=', warehouse.id),
-            ('picking_type_code', '=', 'incoming'),
+            ('picking_type_id.code', '=', 'incoming'),
             ('state', '=', 'done'),
             ('date', '>=', start_date.strftime('%Y-%m-%d')),
         ])
