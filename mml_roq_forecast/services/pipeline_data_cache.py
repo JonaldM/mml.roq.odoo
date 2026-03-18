@@ -69,14 +69,20 @@ class PipelineDataCache:
             for loc_id in loc_ids:
                 location_to_wh[loc_id] = wh_id
 
+        variant_to_tmpl = {
+            v.id: pt.id
+            for pt in products
+            for v in pt.product_variant_ids
+        }
+
         # 7 bulk queries
-        self._load_demand(variant_ids, wh_ids, demand_start, today)
+        self._load_demand(variant_ids, wh_ids, demand_start)
         self._load_receipts(variant_ids, wh_ids, demand_start)
         self._load_soh(variant_ids, all_location_ids, location_to_wh)
         self._load_po_qty(variant_ids, wh_ids)
         self._load_supplier_info(tmpl_ids, products)
-        self._load_revenue(variant_ids, tmpl_ids, wh_ids, abc_start, today, products)
-        self._load_global_revenue(variant_ids, tmpl_ids, abc_start, today, products)
+        self._load_revenue(variant_ids, tmpl_ids, wh_ids, abc_start, products, variant_to_tmpl)
+        self._load_global_revenue(variant_ids, tmpl_ids, abc_start, products, variant_to_tmpl)
 
         self._loaded = True
         _logger.info(
@@ -94,7 +100,7 @@ class PipelineDataCache:
             ])
             self.internal_locations[wh.id] = locs.ids
 
-    def _load_demand(self, variant_ids, wh_ids, start_date, today):
+    def _load_demand(self, variant_ids, wh_ids, start_date):
         """Query 1: SOL demand — shared by get_weekly_demand and get_weekly_demand_raw."""
         lines = self.env['sale.order.line'].search([
             ('product_id', 'in', variant_ids),
@@ -196,14 +202,8 @@ class PipelineDataCache:
             if pt.id not in self.supplier:
                 self.supplier[pt.id] = empty
 
-    def _load_revenue(self, variant_ids, tmpl_ids, wh_ids, start_date, today, products):
+    def _load_revenue(self, variant_ids, tmpl_ids, wh_ids, start_date, products, variant_to_tmpl):
         """Query 6: Per-warehouse trailing revenue for ABC classification."""
-        variant_to_tmpl = {
-            v.id: pt.id
-            for pt in products
-            for v in pt.product_variant_ids
-        }
-
         lines = self.env['sale.order.line'].search([
             ('product_id', 'in', variant_ids),
             ('order_id.state', 'in', ['sale', 'done']),
@@ -223,14 +223,8 @@ class PipelineDataCache:
 
         self.revenue = dict(rev_acc)
 
-    def _load_global_revenue(self, variant_ids, tmpl_ids, start_date, today, products):
+    def _load_global_revenue(self, variant_ids, tmpl_ids, start_date, products, variant_to_tmpl):
         """Query 7: Global (all-warehouse) trailing revenue for abc_tier display badge."""
-        variant_to_tmpl = {
-            v.id: pt.id
-            for pt in products
-            for v in pt.product_variant_ids
-        }
-
         lines = self.env['sale.order.line'].search([
             ('product_id', 'in', variant_ids),
             ('order_id.state', 'in', ['sale', 'done']),

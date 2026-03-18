@@ -191,7 +191,7 @@ class TestLoadDemand:
         today = date.today()
 
         cache._load_demand(variant_ids=[101], wh_ids=[1],
-                           start_date=today - timedelta(weeks=10), today=today)
+                           start_date=today - timedelta(weeks=10))
 
         pairs = dict(cache.demand.get((101, 1), []))
         week_start = monday - timedelta(days=monday.weekday())
@@ -208,7 +208,7 @@ class TestLoadDemand:
             self._make_sol_line(101, 2, monday, 3.0),
         ]
         cache._load_demand(variant_ids=[101], wh_ids=[1, 2],
-                           start_date=today - timedelta(weeks=10), today=today)
+                           start_date=today - timedelta(weeks=10))
 
         assert (101, 1) in cache.demand
         assert (101, 2) in cache.demand
@@ -226,7 +226,7 @@ class TestLoadDemand:
             self._make_sol_line(101, 1, week1, 8.0),
         ]
         cache._load_demand(variant_ids=[101], wh_ids=[1],
-                           start_date=today - timedelta(weeks=10), today=today)
+                           start_date=today - timedelta(weeks=10))
 
         pairs = cache.demand[(101, 1)]
         dates = [p[0] for p in pairs]
@@ -398,9 +398,10 @@ class TestLoadRevenue:
             self._make_sol_revenue(101, 1, 10.0, 25.0),  # 250.0
         ]
 
+        variant_to_tmpl = {v.id: pt.id for pt in products for v in pt.product_variant_ids}
         cache._load_revenue(variant_ids=[101], tmpl_ids=[1], wh_ids=[1],
-                            start_date=today - timedelta(weeks=52), today=today,
-                            products=products)
+                            start_date=today - timedelta(weeks=52),
+                            products=products, variant_to_tmpl=variant_to_tmpl)
 
         assert cache.revenue.get((1, 1), 0.0) == 250.0
 
@@ -417,8 +418,85 @@ class TestLoadRevenue:
             self._make_sol_revenue(101, 2, 3.0, 20.0),   # wh2: 60.0
         ]
 
+        variant_to_tmpl = {v.id: pt.id for pt in products for v in pt.product_variant_ids}
         cache._load_global_revenue(variant_ids=[101], tmpl_ids=[1],
                                    start_date=today - timedelta(weeks=52),
-                                   today=today, products=products)
+                                   products=products, variant_to_tmpl=variant_to_tmpl)
 
         assert cache.global_revenue.get(1, 0.0) == 160.0
+
+
+# ---------------------------------------------------------------------------
+# Load orchestration tests
+# ---------------------------------------------------------------------------
+
+class TestLoadOrchestration:
+
+    def test_load_sets_loaded_flag(self):
+        """load() must set _loaded=True after all queries complete."""
+        env = _make_env()
+
+        # MagicMock.__getitem__ returns the same child mock for all keys by
+        # default.  Give each model its own mock so search.return_value
+        # assignments don't overwrite each other.
+        model_mocks = {}
+
+        def _getitem(_self, key):
+            if key not in model_mocks:
+                model_mocks[key] = MagicMock()
+            return model_mocks[key]
+
+        env.__getitem__ = _getitem
+
+        model_mocks['stock.location'] = MagicMock()
+        model_mocks['stock.location'].search.return_value = MagicMock(ids=[])
+
+        for model in ('sale.order.line', 'stock.move', 'stock.quant', 'purchase.order.line'):
+            model_mocks[model] = MagicMock()
+            model_mocks[model].search.return_value = []
+
+        model_mocks['product.supplierinfo'] = MagicMock()
+        model_mocks['product.supplierinfo'].search.return_value = []
+        model_mocks['product.supplierinfo'].browse.return_value = MagicMock()
+
+        cache = PipelineDataCache(env)
+
+        pt = _make_product_tmpl(tmpl_id=1, variant_ids=[101])
+        products = MagicMock()
+        products.ids = [1]
+        products.__iter__ = lambda self: iter([pt])
+
+        wh = MagicMock()
+        wh.id = 1
+        warehouses = MagicMock()
+        warehouses.ids = [1]
+        warehouses.__iter__ = lambda self: iter([wh])
+
+        assert not cache._loaded
+        cache.load(products, warehouses, lookback_weeks=4, abc_weeks=4)
+        assert cache._loaded
+
+
+# ---------------------------------------------------------------------------
+# Additional PO qty edge-case tests
+# ---------------------------------------------------------------------------
+
+class TestLoadPoQtyEdgeCases:
+
+    def test_po_qty_ignores_line_with_no_picking_type_warehouse(self):
+        """Lines whose picking_type_id.warehouse_id is falsy are silently skipped."""
+        env = _make_env()
+        cache = PipelineDataCache(env)
+
+        line = MagicMock()
+        line.product_id.id = 101
+        # Make warehouse_id falsy (no picking type configured on the PO)
+        line.order_id.picking_type_id.warehouse_id = None
+        line.product_qty = 50.0
+        line.qty_received = 0.0
+
+        env['purchase.order.line'].search.return_value = [line]
+        cache._load_po_qty(variant_ids=[101], wh_ids=[1])
+
+        # Nothing should be in po_qty — line was skipped
+        assert cache.po_qty == {}
