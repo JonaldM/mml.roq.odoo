@@ -1,4 +1,5 @@
 import logging
+import threading
 from dateutil.relativedelta import relativedelta
 from odoo import models, fields, api, exceptions, _
 
@@ -92,7 +93,7 @@ class RoqForecastRun(models.Model):
 
         try:
             run = self.create({})
-            run.action_run()
+            run._run_pipeline_sync()
         except Exception as exc:
             _logger.exception('ROQ weekly cron failed')
             self._send_cron_alert(
@@ -146,15 +147,17 @@ class RoqForecastRun(models.Model):
             safe_to_delete.unlink()
         return super().unlink()
 
-    def action_run(self):
-        """User-triggered or cron-triggered ROQ run."""
-        self.ensure_one()
-        if not self.env.user.has_group('base.group_system'):
-            raise exceptions.AccessError(_('Only system administrators can trigger ROQ runs manually.'))
+    def _run_pipeline_sync(self):
+        """Run the pipeline synchronously in the current cursor.
+
+        Used by the weekly cron, which already runs in a background job and
+        handles its own error/alert logic. Not for direct UI calls.
+        """
         from ..services.roq_pipeline import RoqPipeline
-        # Snapshot current settings on the run header
+        self.ensure_one()
         get = self.env['ir.config_parameter'].sudo().get_param
         self.write({
+            'status': 'running',
             'lookback_weeks': _safe_int(get('roq.lookback_weeks'), 156),
             'sma_window_weeks': _safe_int(get('roq.sma_window_weeks'), 52),
             'default_lead_time_days': _safe_int(get('roq.default_lead_time_days'), 100),
@@ -162,24 +165,98 @@ class RoqForecastRun(models.Model):
             'default_service_level': _safe_float(get('roq.default_service_level'), 0.97),
             'enable_moq_enforcement': get('roq.enable_moq_enforcement', 'True') == 'True',
         })
-        # Run pipeline in an independent cursor so a browser disconnect cannot
-        # roll back the transaction mid-run.
+        try:
+            pipeline = RoqPipeline(self.env)
+            pipeline.run(self)
+            self.write({'status': 'complete'})
+            self.env['mml.event'].emit(
+                'roq.forecast.run',
+                quantity=1,
+                billable_unit='roq_run',
+                res_model=self._name,
+                res_id=self.id,
+                source_module='mml_roq_forecast',
+                payload={'run_ref': self.name, 'sku_count': len(self.line_ids)},
+            )
+        except Exception:
+            self.write({'status': 'error'})
+            raise
+
+    def action_run(self):
+        """User-triggered ROQ run — spawns background thread and returns immediately.
+
+        The pipeline runs in a dedicated cursor that commits independently of the
+        HTTP request, so browser disconnects or Cloudflare timeouts cannot roll
+        back results. Status transitions: draft → running (committed before thread
+        starts) → complete | error (committed by the thread).
+        """
+        self.ensure_one()
+        if not self.env.user.has_group('base.group_system'):
+            raise exceptions.AccessError(_('Only system administrators can trigger ROQ runs manually.'))
+
+        # Snapshot settings and set status=running in an independent cursor so the
+        # state is visible to other sessions immediately (the HTTP cursor hasn't
+        # committed yet and may never commit if the browser drops).
+        get = self.env['ir.config_parameter'].sudo().get_param
         run_id = self.id
-        with self.env.registry.cursor() as new_cr:
-            new_env = api.Environment(new_cr, self.env.uid, self.env.context)
-            run_rec = new_env['roq.forecast.run'].browse(run_id)
-            pipeline = RoqPipeline(new_env)
-            pipeline.run(run_rec)
-            new_cr.commit()
-        self.env['mml.event'].emit(
-            'roq.forecast.run',
-            quantity=1,
-            billable_unit='roq_run',
-            res_model=self._name,
-            res_id=self.id,
-            source_module='mml_roq_forecast',
-            payload={'run_ref': self.name, 'sku_count': len(self.line_ids)},
-        )
+        run_name = self.name
+        with self.env.registry.cursor() as init_cr:
+            init_env = api.Environment(init_cr, self.env.uid, {})
+            init_env['roq.forecast.run'].browse(run_id).write({
+                'status': 'running',
+                'lookback_weeks': _safe_int(get('roq.lookback_weeks'), 156),
+                'sma_window_weeks': _safe_int(get('roq.sma_window_weeks'), 52),
+                'default_lead_time_days': _safe_int(get('roq.default_lead_time_days'), 100),
+                'default_review_interval_days': _safe_int(get('roq.default_review_interval_days'), 30),
+                'default_service_level': _safe_float(get('roq.default_service_level'), 0.97),
+                'enable_moq_enforcement': get('roq.enable_moq_enforcement', 'True') == 'True',
+            })
+            init_cr.commit()
+
+        registry = self.env.registry
+        uid = self.env.uid
+
+        def _run_in_background():
+            from ..services.roq_pipeline import RoqPipeline
+            with registry.cursor() as cr:
+                env = api.Environment(cr, uid, {})
+                run_rec = env['roq.forecast.run'].browse(run_id)
+                try:
+                    pipeline = RoqPipeline(env)
+                    pipeline.run(run_rec)
+                    run_rec.write({'status': 'complete'})
+                    env['mml.event'].emit(
+                        'roq.forecast.run',
+                        quantity=1,
+                        billable_unit='roq_run',
+                        res_model='roq.forecast.run',
+                        res_id=run_id,
+                        source_module='mml_roq_forecast',
+                        payload={'run_ref': run_name, 'sku_count': len(run_rec.line_ids)},
+                    )
+                    cr.commit()
+                    _logger.info('ROQ run %s completed successfully', run_name)
+                except Exception as exc:
+                    _logger.exception('ROQ background pipeline failed for run %s', run_name)
+                    run_rec.write({'status': 'error', 'notes': str(exc)})
+                    cr.commit()
+
+        thread = threading.Thread(target=_run_in_background, daemon=True)
+        thread.start()
+
+        return {
+            'type': 'ir.actions.client',
+            'tag': 'display_notification',
+            'params': {
+                'title': _('ROQ Forecast Started'),
+                'message': _(
+                    'The forecast is running in the background. '
+                    'Refresh this page in a few minutes to see results.'
+                ),
+                'type': 'info',
+                'sticky': True,
+            },
+        }
 
     def get_demand_forecast(self, date_start, horizon_months):
         """
