@@ -5,6 +5,7 @@ FORECAST_METHODS = [
     ('sma', 'SMA'),
     ('ewma', 'EWMA'),
     ('holt_winters', 'Holt-Winters'),
+    ('croston', 'Croston/SBA'),
 ]
 FORECAST_CONFIDENCE = [
     ('high', 'High'),
