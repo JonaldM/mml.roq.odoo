@@ -8,11 +8,15 @@ Confirmed PO qty: purchase.order.line in 'purchase' state, destination = warehou
 
 class InventoryQueryService:
 
-    def __init__(self, env):
+    def __init__(self, env, cache=None):
         self.env = env
+        self.cache = cache
 
     def _get_internal_locations(self, warehouse):
         """All internal stock locations belonging to this warehouse."""
+        if self.cache is not None:
+            loc_ids = self.cache.internal_locations.get(warehouse.id, [])
+            return self.env['stock.location'].browse(loc_ids)
         return self.env['stock.location'].search([
             ('warehouse_id', '=', warehouse.id),
             ('usage', '=', 'internal'),
@@ -23,6 +27,8 @@ class InventoryQueryService:
         Stock on hand for product at warehouse (internal locations only).
         Returns float.
         """
+        if self.cache is not None:
+            return self.cache.soh.get((product.id, warehouse.id), 0.0)
         locations = self._get_internal_locations(warehouse)
         if not locations:
             return 0.0
@@ -37,6 +43,8 @@ class InventoryQueryService:
         Quantity on confirmed (not yet received) purchase orders destined for this warehouse.
         Only counts PO lines in 'purchase' or 'done' state where qty remaining > 0.
         """
+        if self.cache is not None:
+            return self.cache.po_qty.get((product.id, warehouse.id), 0.0)
         dest_locations = self._get_internal_locations(warehouse)
         if not dest_locations:
             return 0.0
