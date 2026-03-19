@@ -186,11 +186,14 @@ class TestDemandHistoryServiceCachePath(unittest.TestCase):
         cache = MagicMock(spec=PipelineDataCache)
         cache.revenue = {(1, 1): 5000.0}
 
-        dh = DemandHistoryService(MagicMock(), cache=cache)
+        env = MagicMock()
+        sol_mock = env['sale.order.line']  # pin reference before service construction — same pattern as demand tests
+
+        dh = DemandHistoryService(env, cache=cache)
         result = dh.get_trailing_revenue_by_warehouse(product_template, warehouse)
 
         assert result == 5000.0
-        dh.env['sale.order.line'].search.assert_not_called()
+        sol_mock.search.assert_not_called()
 
     def test_get_trailing_revenue_by_warehouse_returns_zero_for_missing_key(self):
         product_template = MagicMock()
