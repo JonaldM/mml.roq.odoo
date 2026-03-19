@@ -35,6 +35,7 @@ from .roq_calculator import (
 from .container_fitter import ContainerFitter
 from .inventory_query import InventoryQueryService
 from .settings_helper import SettingsHelper
+from .pipeline_data_cache import PipelineDataCache
 
 
 class RoqPipeline:
@@ -42,9 +43,10 @@ class RoqPipeline:
     def __init__(self, env):
         self.env = env
         self.settings = SettingsHelper(env)
+        self.cache = PipelineDataCache(env)
         self.abc = AbcClassifier(env)
-        self.dh = DemandHistoryService(env)
-        self.inv = InventoryQueryService(env)
+        self.dh = DemandHistoryService(env, cache=self.cache)
+        self.inv = InventoryQueryService(env, cache=self.cache)
 
     def run(self, forecast_run):
         """
@@ -55,12 +57,33 @@ class RoqPipeline:
         forecast_run.write({'status': 'running'})
 
         try:
-            # Step 1: ABCD Classification (per-warehouse)
-            # Returns {(product_tmpl_id, warehouse_id): {'tier', 'revenue', 'cumulative_pct'}}
-            tier_map = self.abc.classify_all_products(forecast_run)
+            # Fetch products + warehouses once — reused by cache load and _compute_all_lines
+            products = self.env['product.template'].search([
+                ('is_roq_managed', '=', True),
+                ('type', 'in', ['product', 'consu']),
+            ])
+            warehouses = self.env['stock.warehouse'].search([
+                ('is_active_for_roq', '=', True),
+            ])
+
+            lookback = self.settings.get_lookback_weeks()
+            abc_weeks = max(1, int(
+                self.env['ir.config_parameter'].sudo()
+                .get_param('roq.abc_trailing_revenue_weeks', 52) or 52
+            ))
+
+            # Step 0: Bulk pre-fetch — replaces ~3,680 per-SKU queries with 7 bulk queries
+            self.cache.load(products, warehouses, lookback, abc_weeks)
+
+            # Step 1: ABCD Classification — uses pre-loaded revenue caches (no per-product queries)
+            tier_map = self.abc.classify_all_products(
+                forecast_run,
+                revenue_cache=self.cache.revenue,
+                global_revenue_cache=self.cache.global_revenue,
+            )
 
             # Step 2-5: Per-SKU per-warehouse forecast + ROQ
-            line_vals = self._compute_all_lines(forecast_run, tier_map)
+            line_vals = self._compute_all_lines(forecast_run, tier_map, products, warehouses)
 
             # Step 6-7: Aggregate by supplier + container fit
             line_vals = self._apply_container_fitting(line_vals)
@@ -91,7 +114,7 @@ class RoqPipeline:
             })
             raise
 
-    def _compute_all_lines(self, forecast_run, tier_map):
+    def _compute_all_lines(self, forecast_run, tier_map, products, warehouses):
         """
         Compute per-SKU per-warehouse ROQ lines (steps 2-5).
 
@@ -99,15 +122,8 @@ class RoqPipeline:
                   Returned by AbcClassifier.classify_all_products().
                   Each (product, warehouse) pair has its own tier from the
                   per-warehouse pareto ranking.
+        products, warehouses: pre-fetched recordsets from run() — avoids duplicate ORM searches.
         """
-        products = self.env['product.template'].search([
-            ('is_roq_managed', '=', True),
-            ('type', 'in', ['product', 'consu']),
-        ])
-        warehouses = self.env['stock.warehouse'].search([
-            ('is_active_for_roq', '=', True),
-        ])
-
         lookback = self.settings.get_lookback_weeks()
         sma_window = self.settings.get_sma_window_weeks()
         min_n = self.settings.get_min_n_value()
@@ -120,10 +136,17 @@ class RoqPipeline:
                 continue
 
             # Get primary supplier and MOQ once per product (same across warehouses)
-            supplier_info = self.env['product.supplierinfo'].search([
-                ('product_tmpl_id', '=', pt.id),
-            ], order='sequence asc, id asc', limit=1)
-            supplier = supplier_info.partner_id if supplier_info else self.env['res.partner']
+            # self.cache._loaded is True when cache.load() completed successfully;
+            # False only if cache construction failed — ORM fallback fires as before.
+            if self.cache._loaded:
+                supplier_info = self.cache.supplier.get(
+                    pt.id, self.env['product.supplierinfo'].browse([])
+                )
+            else:
+                supplier_info = self.env['product.supplierinfo'].search([
+                    ('product_tmpl_id', '=', pt.id),
+                ], order='sequence asc, id asc', limit=1)
+            supplier = supplier_info.partner_id if supplier_info else self.env['res.partner'].browse([])
             supplier_moq = supplier_info.min_qty if supplier_info else 0.0
 
             lt_days = self.settings.get_lead_time_days(supplier)
