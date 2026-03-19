@@ -1,6 +1,9 @@
+import logging
 from datetime import date, timedelta
 from collections import defaultdict
 from .oos_handler import detect_oos_weeks, impute_oos_demand
+
+_logger = logging.getLogger(__name__)
 
 
 class DemandHistoryService:
@@ -15,8 +18,27 @@ class DemandHistoryService:
       Weeks with no sales are 0.0.
     """
 
-    def __init__(self, env):
+    def __init__(self, env, cache=None):
         self.env = env
+        self.cache = cache
+
+    def _build_weekly_series(self, week_sums, lookback_weeks):
+        """
+        Build weekly demand list + (week_start, qty) pairs from a pre-aggregated
+        {week_start_date: qty_float} dict.  Fills zero for weeks with no entries.
+        Returns (result_list, weekly_pairs_list), both trimmed to lookback_weeks.
+        """
+        today = date.today()
+        start_date = today - timedelta(weeks=lookback_weeks)
+        result = []
+        weekly_pairs = []
+        current = start_date - timedelta(days=start_date.weekday())
+        while current <= today:
+            qty = week_sums.get(current, 0.0)
+            result.append(qty)
+            weekly_pairs.append((current, qty))
+            current += timedelta(weeks=1)
+        return result[-lookback_weeks:], weekly_pairs[-lookback_weeks:]
 
     def get_weekly_demand(self, product, warehouse, lookback_weeks=156):
         """
@@ -26,6 +48,21 @@ class DemandHistoryService:
         warehouse: stock.warehouse recordset
         lookback_weeks: int
         """
+        # Cache-hit path
+        if self.cache is not None:
+            key = (product.id, warehouse.id)
+            if key in self.cache.demand:
+                week_sums = dict(self.cache.demand[key])
+                result, weekly_pairs = self._build_weekly_series(week_sums, lookback_weeks)
+                receipt_dates = self.cache.receipts.get(key, [])
+                oos_flags = detect_oos_weeks(weekly_pairs, receipt_dates)
+                return impute_oos_demand(result, oos_flags)
+            _logger.warning(
+                'DemandHistoryService cache miss: demand key (%s, %s) not found, '
+                'falling back to ORM', product.id, warehouse.id,
+            )
+
+        # ORM fallback — existing method body continues here (leave it UNCHANGED)
         today = date.today()
         start_date = today - timedelta(weeks=lookback_weeks)
 
@@ -84,6 +121,19 @@ class DemandHistoryService:
         series including zeros; imputing zeros compresses interval estimates
         and inflates the forecast.
         """
+        # Cache-hit path
+        if self.cache is not None:
+            key = (product.id, warehouse.id)
+            if key in self.cache.demand:
+                week_sums = dict(self.cache.demand[key])
+                result, _ = self._build_weekly_series(week_sums, lookback_weeks)
+                return result
+            _logger.warning(
+                'DemandHistoryService cache miss: demand key (%s, %s) not found, '
+                'falling back to ORM', product.id, warehouse.id,
+            )
+
+        # ORM fallback — existing method body continues here (leave it UNCHANGED)
         today = date.today()
         start_date = today - timedelta(weeks=lookback_weeks)
 
@@ -138,6 +188,11 @@ class DemandHistoryService:
         filtered to orders originating from the given warehouse.
         Used for per-warehouse ABCD tier classification.
         """
+        # Cache-hit path
+        if self.cache is not None:
+            return self.cache.revenue.get((product_template.id, warehouse.id), 0.0)
+
+        # ORM fallback — existing method body continues here (leave it UNCHANGED)
         today = date.today()
         start_date = today - timedelta(weeks=weeks)
 

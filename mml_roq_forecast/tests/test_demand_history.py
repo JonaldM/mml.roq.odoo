@@ -110,3 +110,138 @@ class TestDemandHistoryOosImputation(unittest.TestCase):
         # The zero week should be imputed (non-zero)
         self.assertEqual(len(result), 8)
         self.assertGreater(result[2], 0.0)
+
+
+"""
+Tests for cache-aware paths in DemandHistoryService.
+"""
+from unittest.mock import MagicMock
+
+from mml_roq_forecast.services.demand_history import DemandHistoryService
+from mml_roq_forecast.services.pipeline_data_cache import PipelineDataCache
+
+
+def _make_cache_with_demand(variant_id, wh_id, week_qty_pairs):
+    """Return a PipelineDataCache with demand pre-populated."""
+    cache = MagicMock(spec=PipelineDataCache)
+    cache.demand = {(variant_id, wh_id): week_qty_pairs}
+    cache.receipts = {}
+    cache.revenue = {}
+    return cache
+
+
+class TestDemandHistoryServiceCachePath:
+
+    def test_get_weekly_demand_uses_cache_when_available(self):
+        product = MagicMock()
+        product.id = 101
+        warehouse = MagicMock()
+        warehouse.id = 1
+
+        # Seed cache with one week of demand — use a recent Monday within lookback window
+        today = date.today()
+        monday = today - timedelta(days=today.weekday()) - timedelta(weeks=2)
+        cache = _make_cache_with_demand(101, 1, [(monday, 12.0)])
+
+        dh = DemandHistoryService(MagicMock(), cache=cache)
+        result = dh.get_weekly_demand(product, warehouse, lookback_weeks=4)
+
+        # Result should be a list of floats; the week containing monday should have 12.0
+        assert isinstance(result, list)
+        assert any(v == 12.0 for v in result)
+        # ORM must NOT have been called
+        dh.env['sale.order.line'].search.assert_not_called()
+
+    def test_get_weekly_demand_raw_uses_cache_when_available(self):
+        product = MagicMock()
+        product.id = 101
+        warehouse = MagicMock()
+        warehouse.id = 1
+
+        # Use a recent Monday within lookback window
+        today = date.today()
+        monday = today - timedelta(days=today.weekday()) - timedelta(weeks=2)
+        cache = _make_cache_with_demand(101, 1, [(monday, 7.0)])
+
+        dh = DemandHistoryService(MagicMock(), cache=cache)
+        result = dh.get_weekly_demand_raw(product, warehouse, lookback_weeks=4)
+
+        assert isinstance(result, list)
+        assert any(v == 7.0 for v in result)
+        dh.env['sale.order.line'].search.assert_not_called()
+
+    def test_get_trailing_revenue_by_warehouse_uses_cache_when_available(self):
+        product_template = MagicMock()
+        product_template.id = 1
+        warehouse = MagicMock()
+        warehouse.id = 1
+
+        cache = MagicMock(spec=PipelineDataCache)
+        cache.revenue = {(1, 1): 5000.0}
+
+        dh = DemandHistoryService(MagicMock(), cache=cache)
+        result = dh.get_trailing_revenue_by_warehouse(product_template, warehouse)
+
+        assert result == 5000.0
+        dh.env['sale.order.line'].search.assert_not_called()
+
+    def test_get_trailing_revenue_by_warehouse_returns_zero_for_missing_key(self):
+        product_template = MagicMock()
+        product_template.id = 999
+        warehouse = MagicMock()
+        warehouse.id = 1
+
+        cache = MagicMock(spec=PipelineDataCache)
+        cache.revenue = {}
+
+        dh = DemandHistoryService(MagicMock(), cache=cache)
+        result = dh.get_trailing_revenue_by_warehouse(product_template, warehouse)
+
+        assert result == 0.0
+
+    def test_get_weekly_demand_falls_back_to_orm_on_cache_miss(self):
+        product = MagicMock()
+        product.id = 101
+        warehouse = MagicMock()
+        warehouse.id = 1
+
+        # Cache exists but does not contain this key
+        cache = MagicMock(spec=PipelineDataCache)
+        cache.demand = {}   # empty — will trigger fallback
+        cache.receipts = {}
+
+        sol_mock = MagicMock()
+        sol_mock.search.return_value = []
+        move_mock = MagicMock()
+        move_mock.search.return_value = []
+
+        env = MagicMock()
+        env.company.id = 1
+        env.__getitem__ = lambda self, key: sol_mock if key == 'sale.order.line' else move_mock
+
+        dh = DemandHistoryService(env, cache=cache)
+        result = dh.get_weekly_demand(product, warehouse, lookback_weeks=4)
+
+        # ORM SHOULD have been called because of cache miss
+        sol_mock.search.assert_called_once()
+
+    def test_no_cache_uses_orm(self):
+        """Passing cache=None preserves the original ORM-only behaviour."""
+        product = MagicMock()
+        product.id = 101
+        warehouse = MagicMock()
+        warehouse.id = 1
+
+        sol_mock = MagicMock()
+        sol_mock.search.return_value = []
+        move_mock = MagicMock()
+        move_mock.search.return_value = []
+
+        env = MagicMock()
+        env.company.id = 1
+        env.__getitem__ = lambda self, key: sol_mock if key == 'sale.order.line' else move_mock
+
+        dh = DemandHistoryService(env, cache=None)
+        dh.get_weekly_demand(product, warehouse, lookback_weeks=4)
+
+        sol_mock.search.assert_called_once()
