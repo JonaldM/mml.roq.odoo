@@ -1,6 +1,11 @@
+import unittest
 from datetime import date, timedelta
+from unittest.mock import MagicMock
+
 from odoo.tests.common import TransactionCase
+
 from ..services.demand_history import DemandHistoryService
+from mml_roq_forecast.services.pipeline_data_cache import PipelineDataCache
 
 
 class TestDemandHistory(TransactionCase):
@@ -47,10 +52,6 @@ class TestDemandHistory(TransactionCase):
         result = svc.get_weekly_demand(new_product, self.warehouse, lookback_weeks=8)
         self.assertEqual(len(result), 8)
         self.assertEqual(sum(result), 0.0)
-
-
-import unittest
-from unittest.mock import MagicMock, patch
 
 
 class TestDemandHistoryOosImputation(unittest.TestCase):
@@ -112,15 +113,6 @@ class TestDemandHistoryOosImputation(unittest.TestCase):
         self.assertGreater(result[2], 0.0)
 
 
-"""
-Tests for cache-aware paths in DemandHistoryService.
-"""
-from unittest.mock import MagicMock
-
-from mml_roq_forecast.services.demand_history import DemandHistoryService
-from mml_roq_forecast.services.pipeline_data_cache import PipelineDataCache
-
-
 def _make_cache_with_demand(variant_id, wh_id, week_qty_pairs):
     """Return a PipelineDataCache with demand pre-populated."""
     cache = MagicMock(spec=PipelineDataCache)
@@ -130,45 +122,60 @@ def _make_cache_with_demand(variant_id, wh_id, week_qty_pairs):
     return cache
 
 
-class TestDemandHistoryServiceCachePath:
+class TestDemandHistoryServiceCachePath(unittest.TestCase):
 
     def test_get_weekly_demand_uses_cache_when_available(self):
-        product = MagicMock()
-        product.id = 101
-        warehouse = MagicMock()
-        warehouse.id = 1
-
-        # Seed cache with one week of demand — use a recent Monday within lookback window
         today = date.today()
+        # 2 weeks back: must be strictly inside the lookback_weeks=4 window.
+        # Using lookback_weeks > offset ensures the seed is always in the window
+        # regardless of what day today is.
         monday = today - timedelta(days=today.weekday()) - timedelta(weeks=2)
         cache = _make_cache_with_demand(101, 1, [(monday, 12.0)])
 
-        dh = DemandHistoryService(MagicMock(), cache=cache)
-        result = dh.get_weekly_demand(product, warehouse, lookback_weeks=4)
-
-        # Result should be a list of floats; the week containing monday should have 12.0
-        assert isinstance(result, list)
-        assert any(v == 12.0 for v in result)
-        # ORM must NOT have been called
-        dh.env['sale.order.line'].search.assert_not_called()
-
-    def test_get_weekly_demand_raw_uses_cache_when_available(self):
         product = MagicMock()
         product.id = 101
         warehouse = MagicMock()
         warehouse.id = 1
 
-        # Use a recent Monday within lookback window
+        # Pin the sol_mock reference so the assertion below checks the same object the
+        # service would call search() on — prevents vacuous assert_not_called().
+        env = MagicMock()
+        sol_mock = env['sale.order.line']  # pin reference now
+
+        dh = DemandHistoryService(env, cache=cache)
+        result = dh.get_weekly_demand(product, warehouse, lookback_weeks=4)
+
+        assert isinstance(result, list)
+        # The cache-hit path should return the seeded 12.0 value somewhere in the series
+        assert any(v == 12.0 for v in result)
+        # ORM must NOT have been called — assert on pinned reference, not a new auto-created mock
+        sol_mock.search.assert_not_called()
+
+    def test_get_weekly_demand_raw_uses_cache_when_available(self):
         today = date.today()
+        # 2 weeks back: must be strictly inside the lookback_weeks=4 window.
+        # Using lookback_weeks > offset ensures the seed is always in the window
+        # regardless of what day today is.
         monday = today - timedelta(days=today.weekday()) - timedelta(weeks=2)
         cache = _make_cache_with_demand(101, 1, [(monday, 7.0)])
 
-        dh = DemandHistoryService(MagicMock(), cache=cache)
+        product = MagicMock()
+        product.id = 101
+        warehouse = MagicMock()
+        warehouse.id = 1
+
+        # Pin the sol_mock reference so the assertion below checks the same object the
+        # service would call search() on — prevents vacuous assert_not_called().
+        env = MagicMock()
+        sol_mock = env['sale.order.line']  # pin reference now
+
+        dh = DemandHistoryService(env, cache=cache)
         result = dh.get_weekly_demand_raw(product, warehouse, lookback_weeks=4)
 
         assert isinstance(result, list)
         assert any(v == 7.0 for v in result)
-        dh.env['sale.order.line'].search.assert_not_called()
+        # ORM must NOT have been called — assert on pinned reference, not a new auto-created mock
+        sol_mock.search.assert_not_called()
 
     def test_get_trailing_revenue_by_warehouse_uses_cache_when_available(self):
         product_template = MagicMock()
