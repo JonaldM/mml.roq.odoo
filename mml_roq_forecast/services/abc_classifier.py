@@ -135,7 +135,7 @@ class AbcClassifier:
             'dampener_weeks': _safe_int(get('roq.abc_dampener_weeks'), 4, lo=1, hi=52),
         }
 
-    def classify_all_products(self, run):
+    def classify_all_products(self, run, revenue_cache=None, global_revenue_cache=None):
         """
         Runs ABCD classification per warehouse for all ROQ-managed products.
 
@@ -155,10 +155,18 @@ class AbcClassifier:
             }}
         """
         from datetime import date
-        from .demand_history import DemandHistoryService
 
         settings = self.get_settings()
-        dh = DemandHistoryService(self.env)
+
+        # Lazy DemandHistoryService — only instantiated if revenue cache is not supplied
+        _dh = None
+
+        def _get_dh():
+            nonlocal _dh
+            if _dh is None:
+                from .demand_history import DemandHistoryService
+                _dh = DemandHistoryService(self.env)
+            return _dh
 
         products = self.env['product.template'].search([
             ('is_roq_managed', '=', True),
@@ -187,10 +195,16 @@ class AbcClassifier:
 
         for wh in warehouses:
             # Build revenue map for this warehouse
-            wh_revenue_map = {
-                pt.id: dh.get_trailing_revenue_by_warehouse(pt, wh, weeks=trailing_weeks)
-                for pt in products
-            }
+            if revenue_cache is not None:
+                wh_revenue_map = {
+                    pt.id: revenue_cache.get((pt.id, wh.id), 0.0)
+                    for pt in products
+                }
+            else:
+                wh_revenue_map = {
+                    pt.id: _get_dh().get_trailing_revenue_by_warehouse(pt, wh, weeks=trailing_weeks)
+                    for pt in products
+                }
 
             # Pareto ranking within this warehouse
             wh_tier_assignments = self.classify_from_revenues(
@@ -257,10 +271,16 @@ class AbcClassifier:
         # --- Update product.template display fields with global pareto ---
         # Global = sum of revenue across all warehouses, used only for the
         # product card badge and stats (not the pipeline).
-        global_revenue_map = {
-            pt.id: dh.get_trailing_revenue(pt, weeks=trailing_weeks)
-            for pt in products
-        }
+        if global_revenue_cache is not None:
+            global_revenue_map = {
+                pt.id: global_revenue_cache.get(pt.id, 0.0)
+                for pt in products
+            }
+        else:
+            global_revenue_map = {
+                pt.id: _get_dh().get_trailing_revenue(pt, weeks=trailing_weeks)
+                for pt in products
+            }
         global_tier_assignments = self.classify_from_revenues(
             global_revenue_map,
             band_a_pct=settings['band_a_pct'],

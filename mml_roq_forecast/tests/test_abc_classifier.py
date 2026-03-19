@@ -78,3 +78,14 @@ class TestAbcClassifier(TransactionCase):
             band_b_pct=20,
             overrides=overrides,
         )
+
+
+class TestAbcClassifierRevenueSignature:
+    """Pure-Python: verify classify_all_products signature includes cache params."""
+
+    def test_signature_has_revenue_cache_params(self):
+        import inspect
+        from mml_roq_forecast.services.abc_classifier import AbcClassifier
+        sig = inspect.signature(AbcClassifier.classify_all_products)
+        assert 'revenue_cache' in sig.parameters
+        assert 'global_revenue_cache' in sig.parameters
