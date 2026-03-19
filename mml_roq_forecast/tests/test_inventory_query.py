@@ -1,5 +1,7 @@
+from unittest.mock import MagicMock
 from odoo.tests.common import TransactionCase
 from ..services.inventory_query import InventoryQueryService
+from ..services.pipeline_data_cache import PipelineDataCache
 
 
 class TestInventoryQuery(TransactionCase):
@@ -29,14 +31,7 @@ class TestInventoryQuery(TransactionCase):
         self.assertAlmostEqual(pos, soh + po_qty, places=3)
 
 
-"""
-Tests for cache-aware paths in InventoryQueryService.
-"""
-from unittest.mock import MagicMock
-from mml_roq_forecast.services.inventory_query import InventoryQueryService
-from mml_roq_forecast.services.pipeline_data_cache import PipelineDataCache
-
-
+# Cache-aware path tests
 class TestInventoryQueryServiceCachePath:
 
     def test_get_soh_returns_cached_value(self):
