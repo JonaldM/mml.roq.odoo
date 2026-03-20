@@ -340,7 +340,7 @@ class RoqPipeline:
                     'roq_containerized': r['roq_containerized'],
                     'padding_units': r['padding_units'],
                     'container_type': fit_result['container_type'],
-                    'container_fill_pct': fit_result['fill_pct'],
+                    'container_fill_pct': fit_result['fill_pct'] * 100.0,
                 })
 
         # Remove internal carry fields before writing

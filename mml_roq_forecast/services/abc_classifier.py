@@ -70,12 +70,12 @@ class AbcClassifier:
 
         cumulative = 0.0
         for identifier, revenue in sorted_skus:
+            prev_cumulative_pct = (cumulative / total_revenue) * 100
             cumulative += revenue
-            cumulative_pct = (cumulative / total_revenue) * 100
 
-            if cumulative_pct <= band_a_pct:
+            if prev_cumulative_pct < band_a_pct:
                 raw_tier = 'A'
-            elif cumulative_pct <= band_a_pct + band_b_pct:
+            elif prev_cumulative_pct < band_a_pct + band_b_pct:
                 raw_tier = 'B'
             else:
                 raw_tier = 'C'

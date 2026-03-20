@@ -86,7 +86,7 @@ class ContainerFitter:
 
         # Calculate remaining capacity for padding
         remaining_cbm = chosen_cbm - total_cbm
-        fill_pct = (total_cbm / chosen_cbm) * 100.0
+        fill_pct = total_cbm / chosen_cbm
 
         # Allocate padding
         padding_eligible = [
