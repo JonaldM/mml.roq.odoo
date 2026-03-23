@@ -69,6 +69,7 @@ class ContainerFitter:
         # Find smallest feasible container
         chosen_type = None
         chosen_cbm = None
+        overflow_cbm = 0.0
         for ctype in CONTAINER_ORDER:
             cap = CONTAINER_SPECS[ctype]
             if total_cbm <= cap:
@@ -80,6 +81,7 @@ class ContainerFitter:
             # Exceeds 40HQ — use largest container (multiple containers not yet supported)
             chosen_type = '40HQ'
             chosen_cbm = CONTAINER_SPECS['40HQ']
+            overflow_cbm = total_cbm - chosen_cbm
 
         if chosen_type is None:
             return self._lcl_result(lines, total_cbm)
@@ -129,6 +131,7 @@ class ContainerFitter:
             'container_type': chosen_type,
             'container_cbm': chosen_cbm,
             'fill_pct': fill_pct,
+            'overflow_cbm': overflow_cbm,
             'total_padding_units': total_padding,
             'line_results': line_results,
         }

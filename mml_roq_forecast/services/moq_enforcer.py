@@ -65,14 +65,21 @@ class MoqEnforcer:
         for line in eligible:
             if uplift_remaining <= 0:
                 break
-            line['moq_uplift_qty'] = line.get('moq_uplift_qty', 0.0) + uplift_remaining
-            line['roq_pack_rounded'] += uplift_remaining
+            pack_size = max(1, int(line.get('pack_size', 1)))
+            # Round uplift UP to the nearest pack boundary so roq_pack_rounded stays aligned
+            uplift = int(uplift_remaining)
+            uplift_rounded = ((uplift + pack_size - 1) // pack_size) * pack_size
+            line['moq_uplift_qty'] = line.get('moq_uplift_qty', 0.0) + uplift_rounded
+            line['roq_pack_rounded'] += uplift_rounded
             uplift_remaining = 0
 
         # Safety valve: all warehouses over cap → put uplift on the tightest anyway
         if uplift_remaining > 0 and lines:
             tightest = min(lines, key=lambda line: line.get('weeks_of_cover_at_delivery', 0))
-            tightest['moq_uplift_qty'] = tightest.get('moq_uplift_qty', 0.0) + uplift_remaining
-            tightest['roq_pack_rounded'] += uplift_remaining
+            pack_size = max(1, int(tightest.get('pack_size', 1)))
+            uplift = int(uplift_remaining)
+            uplift_rounded = ((uplift + pack_size - 1) // pack_size) * pack_size
+            tightest['moq_uplift_qty'] = tightest.get('moq_uplift_qty', 0.0) + uplift_rounded
+            tightest['roq_pack_rounded'] += uplift_rounded
 
         return lines
