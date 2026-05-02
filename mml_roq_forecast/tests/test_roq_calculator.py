@@ -65,7 +65,8 @@ class TestRoqCalculator(TransactionCase):
         result = calculate_weeks_of_cover(projected_inventory=100.0, weekly_demand=10.0)
         self.assertAlmostEqual(result, 10.0, places=2)
 
-    def test_weeks_of_cover_zero_demand_returns_999(self):
-        # Avoid division by zero; return sentinel value
+    def test_weeks_of_cover_zero_demand_returns_inf(self):
+        # Avoid division by zero; return math.inf (unconstrained cover)
+        import math
         result = calculate_weeks_of_cover(projected_inventory=100.0, weekly_demand=0.0)
-        self.assertEqual(result, 999.0)
+        self.assertEqual(result, math.inf)

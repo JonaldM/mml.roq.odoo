@@ -45,14 +45,15 @@ def calculate_projected_inventory(inventory_position, weekly_demand, lt_weeks):
 def calculate_weeks_of_cover(projected_inventory, weekly_demand):
     """
     Weeks of cover at time of delivery.
-    Returns 999.0 sentinel if weekly_demand is 0 (prevent division by zero).
+    Returns math.inf when weekly_demand is 0 (prevent division by zero;
+    signals 'unconstrained' cover to callers rather than a magic number).
     """
     if weekly_demand <= 0:
         _logger.debug(
             'weeks_of_cover: zero/negative weekly demand (%.4f) — '
-            'returning sentinel 999.0. If this SKU is being actively '
+            'returning math.inf. If this SKU is being actively '
             'ordered, investigate the demand forecast.',
             weekly_demand,
         )
-        return 999.0
+        return math.inf
     return projected_inventory / weekly_demand
